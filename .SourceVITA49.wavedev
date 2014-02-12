@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="ASCII"?>
+<codegen:WaveDevSettings xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:codegen="http://www.redhawk.gov/model/codegen">
+  <implSettings key="cpp">
+    <value name="cpp" outputDir="cpp" template="gov.redhawk.ide.codegen.jet.cplusplus.PullPortDataTemplate" generatorId="gov.redhawk.ide.codegen.jet.cplusplus.CplusplusGenerator" primary="true">
+      <properties id="auto_start" value="FALSE"/>
+      <generatedFileCRCs crc="1746641546" file="reconf"/>
+      <generatedFileCRCs crc="498842001" file="port_impl.cpp"/>
+      <generatedFileCRCs crc="687147562" file="SourceVITA49.h"/>
+      <generatedFileCRCs crc="2333258892" file="SourceVITA49.cpp"/>
+      <generatedFileCRCs crc="864280150" file="build.sh"/>
+      <generatedFileCRCs crc="3878447177" file="configure.ac"/>
+      <generatedFileCRCs crc="715140190" file="port_impl.h"/>
+      <generatedFileCRCs crc="1926437658" file="SourceVITA49_base.cpp"/>
+      <generatedFileCRCs crc="21671475" file="SourceVITA49_base.h"/>
+      <generatedFileCRCs crc="2262102286" file="main.cpp"/>
+      <generatedFileCRCs crc="3295283709" file="struct_props.h"/>
+      <generatedFileCRCs crc="1251663930" file="../SourceVITA49.spec"/>
+      <generatedFileCRCs crc="1690568531" file="Makefile.am"/>
+    </value>
+  </implSettings>
+  <implSettings key="cpp_i686"/>
+</codegen:WaveDevSettings>

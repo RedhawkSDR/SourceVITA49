@@ -1,0 +1,48 @@
+#
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
+# distributed with this source distribution.
+#
+# This file is part of REDHAWK.
+#
+# REDHAWK is free software: you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by the
+# Free Software Foundation, either version 3 of the License, or (at your
+# option) any later version.
+#
+# REDHAWK is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+# for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see http://www.gnu.org/licenses/.
+#
+AC_INIT(SourceVITA49, 1.0.0)
+AM_INIT_AUTOMAKE(nostdinc)
+
+AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_INSTALL
+
+AC_CORBA_ORB
+OSSIE_CHECK_OSSIE
+OSSIE_SDRROOT_AS_PREFIX
+
+# Dependencies
+export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/usr/local/lib/pkgconfig"
+PKG_CHECK_MODULES([PROJECTDEPS], [ossie >= 1.8 omniORB4 >= 4.0.0])
+PKG_CHECK_MODULES([INTERFACEDEPS], [bulkioInterfaces >= 1.8])
+OSSIE_ENABLE_LOG4CXX
+AX_BOOST_BASE([1.41])
+AX_BOOST_THREAD
+CHECK_VECTOR_IMPL
+AC_SUBST([ARCH],[`uname -p`])
+export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/var/redhawk/sdr/dom/sharedPkgs/libVITA49/default_impl_$ARCH"
+PKG_CHECK_MODULES(libVITA49, libVITA49 >= 1.0.0)
+AC_SUBST(libVITA49_CFLAGS)
+AC_SUBST(libVITA49_LIBS)
+CXXFLAGS="$CXXFLAGS $libVITA49_CFLAGS"
+LIBS="$LIBS $libVITA49_LIBS"
+
+AC_CONFIG_FILES(Makefile)
+AC_OUTPUT
