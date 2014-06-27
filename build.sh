@@ -18,14 +18,14 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
-if [ "$1" == "rpm" ]; then
+if [ "$1" = "rpm" ]; then
     # A very simplistic RPM build scenario
     if [ -e SourceVITA49.spec ]; then
         mydir=`dirname $0`
         tmpdir=`mktemp -d`
-        cp -r ${mydir} ${tmpdir}/SourceVITA49-1.1.0dev0
-        tar czf ${tmpdir}/SourceVITA49-1.1.0dev0.tar.gz --exclude=".svn" -C ${tmpdir} SourceVITA49-1.1.0dev0
-        rpmbuild -ta ${tmpdir}/SourceVITA49-1.1.0dev0.tar.gz
+        cp -r ${mydir} ${tmpdir}/SourceVITA49-2.0.0dev0
+        tar czf ${tmpdir}/SourceVITA49-2.0.0dev0.tar.gz --exclude=".svn" -C ${tmpdir} SourceVITA49-2.0.0dev0
+        rpmbuild -ta ${tmpdir}/SourceVITA49-2.0.0dev0.tar.gz
         rm -rf $tmpdir
     else
         echo "Missing RPM spec file in" `pwd`
@@ -36,6 +36,8 @@ else
         pushd $impl &> /dev/null
         if [ -e build.sh ]; then
             ./build.sh $*
+        elif [ -e reconf ]; then
+            ./reconf && ./configure && make $*
         else
             echo "No build.sh found for $impl"
         fi

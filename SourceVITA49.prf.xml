@@ -27,7 +27,7 @@
     </simple>
     <simple id="attachment_override::port" name="port" type="long">
       <description>Port number for the interface.</description>
-      <value>29495</value>
+      <value>12344</value>
       <kind kindtype="configure"/>
     </simple>
     <simple id="transportMethod_override::use_udp_protocol" mode="readwrite" name="use_udp_protocol" type="boolean">
@@ -133,17 +133,17 @@ Rule 6.1.6.2-2: When link-efficient packing is implemented all bits in each 32-b
       <value>3</value>
       <enumerations>
         <enumeration label="DataType_UInt1" value="0"/>
-        <enumeration label="DataType_Int4" value="1"/>
-        <enumeration label="DataType_UInt4" value="2"/>
-        <enumeration label="DataType_Int8" value="3"/>
-        <enumeration label="DataType_int16" value="5"/>
+        <enumeration label="DataType_UInt4" value="1"/>
+        <enumeration label="DataType_Int8" value="2"/>
+        <enumeration label="DataType_int16" value="3"/>
         <enumeration label="DataType_UInt8" value="4"/>
-        <enumeration label="DataType_UInt16" value="6"/>
-        <enumeration label="DataType_Float" value="7"/>
-        <enumeration label="DataType_Double" value="8"/>
-        <enumeration label="DataType_Int4" value="1"/>
-        <enumeration label="DataType_UInt1" value="0"/>
-        <enumeration label="DataType_UInt4" value="2"/>
+        <enumeration label="DataType_UInt16" value="5"/>
+        <enumeration label="DataType_Float" value="6"/>
+        <enumeration label="DataType_Double" value="7"/>
+        <enumeration label="DataType_Int32" value="8"/>
+        <enumeration label="DataType_Uint32" value="9"/>
+        <enumeration label="DataType_Int64" value="10"/>
+        <enumeration label="DataType_Uint64" value="11"/>
       </enumerations>
       <kind kindtype="configure"/>
       <action type="external"/>

@@ -21,7 +21,7 @@
 # You can override this at install time using --prefix /new/sdr/root when invoking rpm (preferred method, if you must)
 %{!?_sdrroot: %define _sdrroot /var/redhawk/sdr}
 %define _prefix %{_sdrroot}
-Prefix: %{_prefix}
+Prefix:         %{_prefix}
 
 # Point install paths to locations within our target SDR root
 %define _sysconfdir    %{_prefix}/etc
@@ -29,75 +29,64 @@ Prefix: %{_prefix}
 %define _mandir        %{_prefix}/man
 %define _infodir       %{_prefix}/info
 
-Name: SourceVITA49
-Summary: Component %{name}
-Version: 1.1.0
-Release: 5%{?dist}
-License: None
-Group: REDHAWK/Components
-Source: %{name}-%{version}.tar.gz
-BuildRoot: %{_tmppath}/%{name}-root
+Name:           SourceVITA49
+Version:        2.0.0
+Release:        1%{?dist}
+Summary:        Component %{name}
 
-Requires: redhawk >= 1.8.6
-BuildRequires: redhawk-devel >= 1.8.6
+Group:          REDHAWK/Components
+License:        LGPLv3+
+Source0:        %{name}-%{version}.tar.gz
+BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+
+
+Requires:       redhawk >= 1.10
+BuildRequires:  redhawk-devel >= 1.10
 
 # Interface requirements
-Requires: bulkioInterfaces >= 1.8.6
-BuildRequires: bulkioInterfaces >= 1.8.6
+Requires:       bulkioInterfaces >= 1.10
+BuildRequires:  bulkioInterfaces >= 1.10
 
 # C++ requirements
-Requires: libVITA49
-BuildRequires: libVITA49-devel
-
+# C++ requirements
+Requires: redhawk-libVITA49_v1 >= 1.0.0
+BuildRequires: redhawk-libVITA49_v1-devel >= 1.0.0
 
 %description
-The SourceVITA49 REDHAWK component connects to a UDP/multicast or TCP VITA49 packet stream and converts the headers to SRI Keywords and data to the BULKIO interface of the user's choice for use within REDHAWK domain applications.
+The SourceVITA49 REDHAWK component receives a UDP/multicast or TCP VITA49 packet stream and converts VITA49 packet to data and SRI Keywords within/between REDHAWK domain applications.
 
-The Keywords generated from the packet are documented in the attached readme.txt
- * Commit: __REVISION__
- * Source Date/Time: __DATETIME__
-
+The mapping context packets to Keywords are documented in the attached VITA49_Keywords.pdf
 
 %prep
-%setup
+%setup -q
 
 %build
 # Implementation cpp
 pushd cpp
 ./reconf
-%ifarch x86_64
-%define _bindir %{_prefix}/dom/components/SourceVITA49/cpp_x86_64
-%else
-%define _bindir %{_prefix}/dom/components/SourceVITA49/cpp_i686
-%endif
+%define _bindir %{_prefix}/dom/components/SourceVITA49/cpp
 %configure
-make
+make %{?_smp_mflags}
 popd
+
 
 %install
 rm -rf $RPM_BUILD_ROOT
 # Implementation cpp
-
 pushd cpp
-%ifarch x86_64
-%define _bindir %{_prefix}/dom/components/SourceVITA49/cpp_x86_64 
-%else
-%define _bindir %{_prefix}/dom/components/SourceVITA49/cpp_i686
-%endif
+%define _bindir %{_prefix}/dom/components/SourceVITA49/cpp
 make install DESTDIR=$RPM_BUILD_ROOT
 popd
+
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
+
 %files
-%defattr(-,redhawk,redhawk)
+%defattr(-,redhawk,redhawk,-)
 %dir %{_prefix}/dom/components/%{name}
 %{_prefix}/dom/components/%{name}/SourceVITA49.spd.xml
 %{_prefix}/dom/components/%{name}/SourceVITA49.prf.xml
 %{_prefix}/dom/components/%{name}/SourceVITA49.scd.xml
-%ifarch x86_64
-%{_prefix}/dom/components/%{name}/cpp_x86_64
-%else 
-%{_prefix}/dom/components/%{name}/cpp_i686
-%endif
+%{_prefix}/dom/components/%{name}/cpp

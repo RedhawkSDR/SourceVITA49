@@ -18,7 +18,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 ossieName = SourceVITA49
-bindir = $(prefix)/dom/components/SourceVITA49/cpp_${ARCH}/
+bindir = $(prefix)/dom/components/SourceVITA49/cpp/
 bin_PROGRAMS = SourceVITA49
 
 xmldir = $(prefix)/dom/components/SourceVITA49/
@@ -44,4 +44,4 @@ include $(srcdir)/Makefile.am.ide
 SourceVITA49_SOURCES = $(redhawk_SOURCES_auto)
 SourceVITA49_CXXFLAGS = -g -Wall $(PROJECTDEPS_CFLAGS) $(BOOST_CPPFLAGS) $(INTERFACEDEPS_CFLAGS) $(redhawk_INCLUDES_auto)
 SourceVITA49_LDADD = $(PROJECTDEPS_LIBS) $(BOOST_LDFLAGS) $(BOOST_THREAD_LIB) $(INTERFACEDEPS_LIBS) $(redhawk_LDADD_auto)
-SourceVITA49_LDFLAGS = -g -Wall $(redhawk_LDFLAGS_auto)
+SourceVITA49_LDFLAGS =-g -Wall $(redhawk_LDFLAGS_auto)
