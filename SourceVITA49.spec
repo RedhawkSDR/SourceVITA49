@@ -31,7 +31,7 @@ Prefix:         %{_prefix}
 
 Name:           SourceVITA49
 Version:        2.0.0
-Release:        9%{?dist}
+Release:        10%{?dist}
 Summary:        Component %{name}
 
 Group:          REDHAWK/Components
