@@ -55,21 +55,6 @@ SourceVITA49_i::SourceVITA49_i(const char *uuid, const char *label) :
 SourceVITA49_base(uuid, label), Bank2(numBuffers), workQueue2(numBuffers) {
     __constructor__();
 
-    
-    //dataChar_out = new OutCharArrayPort("dataChar_out");
-    //dataOctet_out = new OutOctetArrayPort("dataOctet_out");
-    //dataShort_out = new OutShortArrayPort("dataShort_out");
-    //dataUshort_out = new OutUShortArrayPort("dataUshort_out");
-    //dataFloat_out = new OutFloatArrayPort("dataFloat_out");
-    //dataDouble_out = new OutDoubleArrayPort("dataDouble_out");
-    
-    //this->addPort("dataChar_out", dataChar_out);
-    //this->addPort("dataOctet_out", dataOctet_out);
-    //this->addPort("dataShort_out", dataShort_out);
-    //this->addPort("dataUshort_out", dataUshort_out);
-    //this->addPort("dataFloat_out", dataFloat_out);
-    //this->addPort("dataDouble_out", dataDouble_out);
-    
     dataVITA49_in->setNewAttachDetachCallback(this);
     dataVITA49_in->setNewSriListener(this, &SourceVITA49_i::newSriCallback);
     dataVITA49_in->setSriChangeListener(this, &SourceVITA49_i::sriChangedCallback);
@@ -121,6 +106,10 @@ void SourceVITA49_i::__constructor__() {
     resetAttachSettings(attach_port_settings);
     
     transferSize = CORBA_MAX_XFER_BYTES;
+    unicast_udp_open = false;
+    unicast_tcp_open = false;
+    multicast_udp_open = false;
+    tcpClient = NULL;
 }
 
 void SourceVITA49_i::initialize_values() {
@@ -151,10 +140,11 @@ void SourceVITA49_i::initialize_values() {
     connection_status.input_enabled = false;
     connection_status.input_ip_address = ossie::corba::returnString("127.0.0.1");
     connection_status.input_port = 0;
-    connection_status.input_sample_rate = 0;
+    connection_status.input_sample_rate = 0.0;
     connection_status.input_vlan = 0;
     connection_status.packets_missing = 0;
-    //connection_status.picseconds_between_packet_timestamps =0;
+    connection_status.data_throughput = 0.0;	 
+    connection_status.waiting_for_context_packet = true;
 
     samplesSinceLastTimeStamp = 0;
 
@@ -410,7 +400,7 @@ BULKIO::PrecisionUTCTime SourceVITA49_i::adjustTime(TimeStamp packet_time, bool 
             }
 
             connection_status.waiting_for_context_packet = !receivedContextPacket;
-            connection_status.input_sample_rate = (double) round(1.0 / currSRI.xdelta);
+            connection_status.input_sample_rate = (CORBA::Double) 1.0 / currSRI.xdelta;
 
             std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer = (std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) & (basicVRPPacket->bbuf));
             vectorPointer->_M_start = const_cast<char*> ((char*) &((*packet)[_offset]));
@@ -456,15 +446,27 @@ BULKIO::PrecisionUTCTime SourceVITA49_i::adjustTime(TimeStamp packet_time, bool 
      *    workQueue to do a max corba transfer.
      *******************************************************************************************/
     void SourceVITA49_i::stop() throw (CF::Resource::StopError, CORBA::SystemException) {
-        SourceVITA49_base::stop();
+    	boost::mutex::scoped_lock runLock(startstop_lock);
+    	SourceVITA49_base::stop();
 
-        //if (uni_client != NULL)
-        unicast_close(uni_client);
-        //else if (client != NULL)
-        multicast_close(client);
+    	if (unicast_udp_open) {
+    		unicast_close(uni_client);
+    		unicast_udp_open = false;
+    	}
 
-        destroy_rx_thread();
+    	if (unicast_tcp_open) {
+    		boost::mutex::scoped_lock lock(clientUsageLock);
+    		if (tcpClient) delete tcpClient;
+    		tcpClient = NULL;
+    		unicast_tcp_open = false;
+    	}
 
+    	if (multicast_udp_open) {
+    		multicast_close(client);
+    		multicast_udp_open = false;
+    	}
+
+    	destroy_rx_thread();
     }
 
     void SourceVITA49_i::start() throw (CF::Resource::StartError, CORBA::SystemException) {
@@ -482,15 +484,20 @@ BULKIO::PrecisionUTCTime SourceVITA49_i::adjustTime(TimeStamp packet_time, bool 
     }
 
     void SourceVITA49_i::destroy_rx_thread() {
-        boost::mutex::scoped_lock lock(teardown_lock);
-        if (_receiveThread != NULL) {
-            curr_attach.attach = false;
-            runThread = false;
-            _receiveThread->timed_join(boost::posix_time::seconds(1));
-            delete _receiveThread;
-            _receiveThread = NULL;
-        }
+    	if (_receiveThread != NULL) {
+    		curr_attach.attach = false;
+    		runThread = false;
+    		_receiveThread->timed_join(boost::posix_time::seconds(1));
+    		delete _receiveThread;
+    		_receiveThread = NULL;
+    	}
 
+    	boost::mutex::scoped_lock lock(clientUsageLock);
+    	if (tcpClient) {
+    		tcpClient->close();
+    		delete tcpClient;
+    		tcpClient = NULL;
+    	}
     }
     
     bool SourceVITA49_i::updateAttachSettings() {
@@ -504,6 +511,10 @@ BULKIO::PrecisionUTCTime SourceVITA49_i::adjustTime(TimeStamp packet_time, bool 
             LOG_ERROR(SourceVITA49_i, "Unable to determine attachment settings!")
             return false;
         }
+        
+        connection_status.input_ip_address = ossie::corba::returnString(curr_attach.ip_address.c_str());
+        connection_status.input_port = (CORBA::UShort) curr_attach.port;
+        connection_status.input_vlan = (CORBA::UShort) curr_attach.vlan;
         return true;
     }
 
@@ -541,81 +552,97 @@ BULKIO::PrecisionUTCTime SourceVITA49_i::adjustTime(TimeStamp packet_time, bool 
     }
     
     bool SourceVITA49_i::launch_rx_thread() {
-        LOG_TRACE(SourceVITA49_i, __PRETTY_FUNCTION__);
-        destroy_rx_thread();
-        runThread = true;
+    	LOG_TRACE(SourceVITA49_i, __PRETTY_FUNCTION__);
+    	dataPacketCount = 0;
+    	destroy_rx_thread();
+    	runThread = true;
 
-        // Apply/use the appropriate attachment settings
-        bool validAttachSettings = updateAttachSettings();
-        if (not validAttachSettings) {
-            LOG_ERROR(SourceVITA49_i, "Cannot start RX_THREAD :: Invalid attachment settings!");
-            return false;
-        }
-        
-        /* build the iterface string */
-        std::ostringstream iface;
-        iface << curr_attach.eth_dev;
+    	// Apply/use the appropriate attachment settings
+    	bool validAttachSettings = updateAttachSettings();
+    	if (not validAttachSettings) {
+    		LOG_ERROR(SourceVITA49_i, "Cannot start RX_THREAD :: Invalid attachment settings!");
+    		return false;
+    	}
 
-        //connect to VLAN
-        if (curr_attach.vlan != 0) {
-            iface << "." << curr_attach.vlan;
-        }
-        if (inet_network(curr_attach.ip_address.c_str()) > lowMulti && inet_addr(curr_attach.ip_address.c_str()) < highMulti && !curr_attach.ip_address.empty()) {
-            LOG_DEBUG(SourceVITA49_i, "Enabling multicast_client on " << iface.str().c_str() << " " << curr_attach.ip_address.c_str() << " " << curr_attach.port);
-            client = multicast_client(iface.str().c_str(), curr_attach.ip_address.c_str(), curr_attach.port);
-            if (client.sock < 0) {
-                LOG_ERROR(SourceVITA49_i, "Error: SourceVITA49_impl::RECEIVER() failed to connect to multicast socket");
-                return false;
-            }
-            multicast = true;
-        } else if (curr_attach.use_udp_protocol) {
-            LOG_DEBUG(SourceVITA49_i, "Enabling unicast_client on " << iface.str().c_str() << " " << curr_attach.ip_address.c_str() << " " << curr_attach.port);
-            uni_client = unicast_client(iface.str().c_str(), curr_attach.ip_address.c_str(), curr_attach.port);
-            if (uni_client.sock < 0) {
-                //std::cerr << "Error: SourceVITA49::RECEIVER() failed to connect to unicast socket  " << std::endl;
-                LOG_ERROR(SourceVITA49_i, "Error: SourceVITA49::RECEIVER() failed to connect to unicast socket")
-                return false;
-            }
-            multicast = false;
-        } else {
-            LOG_DEBUG(SourceVITA49_i, "Enabling unicast_client on " << iface.str().c_str() << " " << curr_attach.ip_address.c_str() << " " << curr_attach.port);
-            uni_client = unicast_client(iface.str().c_str(), curr_attach.ip_address.c_str(), curr_attach.port);
-            if (uni_client.sock < 0) {
-                //std::cerr << "Error: SourceVITA49::RECEIVER() failed to connect to unicast socket  " << std::endl;
-                LOG_ERROR(SourceVITA49_i, "Error: SourceVITA49::RECEIVER() failed to connect to unicast socket")
-                return false;
-            }
+    	/* build the iterface string */
+    	std::ostringstream iface;
+    	iface << curr_attach.eth_dev;
 
-            multicast = false;
-        }
-        //update the read only properties
-        connection_status.input_enabled = true;
-        connection_status.input_ip_address = ossie::corba::returnString(curr_attach.ip_address.c_str());
-        connection_status.input_port = curr_attach.port;
-        connection_status.input_vlan = curr_attach.vlan;
-        //before the thread starts, set run to true
+    	//connect to VLAN
+    	if (curr_attach.vlan != 0) {
+    		iface << "." << curr_attach.vlan;
+    	}
 
-        if (multicast)
-            _receiveThread = new boost::thread(&SourceVITA49_i::RECEIVER_M, this);
-        else
-            _receiveThread = new boost::thread(&SourceVITA49_i::RECEIVER, this);
+    	in_addr_t attachedIP = inet_network(curr_attach.ip_address.c_str());
+    	const char* attachedIPstr = curr_attach.ip_address.c_str();
+    	std::string attachedInterfaceStr = iface.str();
+    	const char* attachedInterface = attachedInterfaceStr.c_str();
+    	multicast = false;
+    	if (attachedIP == -1) {
+    		LOG_ERROR(SourceVITA49_i, "Cannot start RX_THREAD :: Invalid attachment IP")
+    	            		return false;
+    	}
 
-        LOG_DEBUG(SourceVITA49_i, "PID for receive thread is " << _receiveThread);
-        /* added to increase the recieve thread priority */
-        sched_param myPrior;
-        myPrior.__sched_priority = sched_get_priority_max(SCHED_RR);
-        if (pthread_setschedparam((pthread_t) _receiveThread->native_handle(), SCHED_RR, &myPrior)) {
-            LOG_INFO(SourceVITA49_i, " UNABLE TO CHANGE SCHEDULER AND PRIORITY. CHECK PERMISSIONS..." << _receiveThread->native_handle());
-        } else {
-            LOG_DEBUG(SourceVITA49_i, " :: JUST SET SCHEDULER TO RR AND PRIORITY TO: " << myPrior.__sched_priority << " FOR PID: " << _receiveThread->native_handle());
-        }
-        nice(-20);
-        curr_attach.attach = true;
-        
-        LOG_INFO(SourceVITA49_i, " *****************************************************************************");
-        LOG_INFO(SourceVITA49_i, " **** LISTENING FOR PACKETS ON '" << curr_attach.eth_dev << "' AT " << curr_attach.ip_address << ":" << curr_attach.port);
-        LOG_INFO(SourceVITA49_i, " *****************************************************************************");
-        return true;
+    	if (attachedIP > lowMulti && attachedIP < highMulti && !curr_attach.ip_address.empty()) {
+    		LOG_DEBUG(SourceVITA49_i, "Enabling multicast_client on " << attachedInterface << " " << attachedIPstr << " " << curr_attach.port);
+    		client = multicast_client(attachedInterface, attachedIPstr, curr_attach.port);
+    		if (client.sock < 0) {
+    			LOG_ERROR(SourceVITA49_i, "Error: SourceVITA49_impl::RECEIVER() failed to connect to multicast socket");
+    			return false;
+    		}
+    		multicast_udp_open = true;
+    	} else if (!curr_attach.use_udp_protocol) {
+    		LOG_DEBUG(SourceVITA49_i, "Enabling unicast TCP client on " << attachedInterface << " " << attachedIPstr << " " << curr_attach.port);
+    		{
+    			boost::mutex::scoped_lock lock(clientUsageLock);
+    			tcpClient = new TCPClient(curr_attach.port, attachedIPstr);
+    			//tcpClient->useDebug();
+    		}
+
+    		uni_tcp_client = unicast_tcp_client(attachedInterface, attachedIPstr, curr_attach.port);
+    		if (uni_tcp_client.sock < 0) {
+    			LOG_ERROR(SourceVITA49_i, "Error: SourceVITA49::RECEIVER() failed to connect to unicast tcp socket")
+    	                		return false;
+    		}
+    		unicast_tcp_open = true;
+    	} else {
+    		LOG_DEBUG(SourceVITA49_i, "Enabling unicast UDP client on " << attachedInterface << " " << attachedIPstr << " " << curr_attach.port);
+    		uni_client = unicast_client(attachedInterface, attachedIPstr, curr_attach.port);
+    		if (uni_client.sock < 0) {
+    			//std::cerr << "Error: SourceVITA49::RECEIVER() failed to connect to unicast socket  " << std::endl;
+    			LOG_ERROR(SourceVITA49_i, "Error: SourceVITA49::RECEIVER() failed to connect to unicast udp socket")
+    	                		return false;
+    		}
+    		unicast_udp_open = true;
+    	}
+
+    	if (multicast) {
+    		_receiveThread = new boost::thread(&SourceVITA49_i::RECEIVER_M, this);
+    	} else {
+    		if (curr_attach.use_udp_protocol) {
+    			_receiveThread = new boost::thread(&SourceVITA49_i::RECEIVER, this);
+    		} else {
+    			_receiveThread = new boost::thread(&SourceVITA49_i::RECEIVER_TCP, this);
+    		}
+    	}
+
+    	LOG_DEBUG(SourceVITA49_i, "PID for receive thread is " << _receiveThread);
+    	/* added to increase the recieve thread priority */
+    	sched_param myPrior;
+    	myPrior.__sched_priority = sched_get_priority_max(SCHED_RR);
+    	if (pthread_setschedparam((pthread_t) _receiveThread->native_handle(), SCHED_RR, &myPrior)) {
+    		LOG_INFO(SourceVITA49_i, " UNABLE TO CHANGE SCHEDULER AND PRIORITY. CHECK PERMISSIONS..." << _receiveThread->native_handle());
+    	} else {
+    		LOG_DEBUG(SourceVITA49_i, " :: JUST SET SCHEDULER TO RR AND PRIORITY TO: " << myPrior.__sched_priority << " FOR PID: " << _receiveThread->native_handle());
+    	}
+    	nice(-20);
+
+    	LOG_INFO(SourceVITA49_i, " *****************************************************************************");
+    	LOG_INFO(SourceVITA49_i, " **** LISTENING FOR PACKETS ON '" << curr_attach.eth_dev << "' AT " << curr_attach.ip_address << ":" << curr_attach.port);
+    	LOG_INFO(SourceVITA49_i, " *****************************************************************************");
+    	connection_status.input_enabled = true;
+    	curr_attach.attach = true;
+    	return true;
     }
 
     void SourceVITA49_i::RECEIVER() {
@@ -663,6 +690,104 @@ BULKIO::PrecisionUTCTime SourceVITA49_i::adjustTime(TimeStamp packet_time, bool 
 
         }
     }
+
+    void SourceVITA49_i::RECEIVER_TCP() {
+           // Start attempting to connect
+           {
+               boost::mutex::scoped_lock lock(clientUsageLock);
+               if (tcpClient) {
+                   tcpClient->connect();
+               } else {
+                   LOG_ERROR(SourceVITA49_i, "Unable to start receiver thread - Could not connect client");
+                   return;
+               }
+           }
+
+           // Setup buffers for data and peeking
+           std::vector<char> *packet = NULL;
+           std::vector<char> peeked(16);
+
+           // Offset determined flag indicates if we should parse header
+           bool offsetDetermined = false;
+           size_t bytesPeeked = 0;
+           size_t peekedVRTPacketLength = 0;
+           size_t vrlBytesInPacket = 0;
+
+           while (runThread) {
+
+               bytesPeeked = 0;
+               {
+                   boost::mutex::scoped_lock lock(clientUsageLock);
+                   // Peek at the data on the socket
+                   if (tcpClient) {
+                       bytesPeeked = tcpClient->peek(peeked);
+                   }
+               }
+
+               // Check if peek read any data
+               if (bytesPeeked <= 0) {
+                   sleep(0.1);
+                   continue;
+               }
+
+               // Determine the offset by looking at the first 8 bytes
+               if (!offsetDetermined) {
+                   if ((peeked.at(0) == vrt::BasicVRLFrame::VRL_FAW_0) &&
+                       (peeked.at(1) == vrt::BasicVRLFrame::VRL_FAW_1) &&
+                       (peeked.at(2) == vrt::BasicVRLFrame::VRL_FAW_2) &&
+                       (peeked.at(3) == vrt::BasicVRLFrame::VRL_FAW_3)) {
+                       _offset = 8;
+                       vrlBytesInPacket = 12;
+                   } else {
+                       _offset = 0;
+                       vrlBytesInPacket = 0;
+                   }
+                   offsetDetermined = true;
+               }
+
+               // Determine if packet on queue is context or data
+               peekedVRTPacketLength = ((0xFF & ((int32_t)peeked[2+_offset])) << 10) | ((0xFF & ((int32_t)peeked[3+_offset])) << 2);
+
+               packet = NULL;
+               try {
+                   // this will block until a buffer is available
+                   Bank2.pop_back(&packet);
+               } catch (...) {
+                   continue;
+               }
+
+               // Resize the packet to the amount we want to read
+               packet->resize(peekedVRTPacketLength + vrlBytesInPacket);
+
+               {
+                   boost::mutex::scoped_lock lock(clientUsageLock);
+                   // Read socket data into packet
+                   if (tcpClient) tcpClient->read(*packet);
+               }
+
+               boost::this_thread::interruption_point();
+
+               if (packet->size() > 0) {
+
+                   //vector magic
+                   std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer = (std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) & (basicVRTPacket->bbuf));
+                   vectorPointer->_M_start = const_cast<char*> (reinterpret_cast<char*> (&((*packet)[_offset])));
+                   vectorPointer->_M_finish = vectorPointer->_M_start + (packet->size() - _offset);
+                   vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+
+                   if (basicVRTPacket->isPacketValid()) {
+                       LOG_DEBUG(SourceVITA49_i, "Pushing received packet to workQueue");
+                       workQueue2.push_front(packet);
+                   } else {
+                       LOG_DEBUG(SourceVITA49_i, "Malformed packet received");
+                       Bank2.push_front(packet);
+                   }
+               } else {
+                   usleep(100000);
+                   Bank2.push_front(packet);
+               }
+           }
+       }
 
     void SourceVITA49_i::RECEIVER_M() {
         //curr_attach.attach = true;
@@ -895,7 +1020,7 @@ BULKIO::PrecisionUTCTime SourceVITA49_i::adjustTime(TimeStamp packet_time, bool 
             }
             if (!isNull(contextPacket_g->getSampleRate())) {
                 outputSRI.xdelta = 1.0 / contextPacket_g->getSampleRate();
-                connection_status.input_sample_rate = 1.0 / contextPacket_g->getSampleRate();
+                //connection_status.input_sample_rate = 1.0 / contextPacket_g->getSampleRate();
                 inputSampleRate = contextPacket_g->getSampleRate();
                 LOG_DEBUG(SourceVITA49_i, "Sample Rate: " << contextPacket_g->getSampleRate());
             }
@@ -1495,7 +1620,7 @@ BULKIO::PrecisionUTCTime SourceVITA49_i::adjustTime(TimeStamp packet_time, bool 
                     }
                     //update data_throughput
 
-                    connection_status.data_throughput = transferSize / (timeDiff());
+                    connection_status.data_throughput = 8*(transferSize) / (timeDiff());
 
                     getTimeStamp = true;
 

@@ -48,6 +48,8 @@
 #include "BasicContextPacket.h"
 #include "multicast.h"
 #include "unicast.h"
+#include "unicast_tcp.h"
+#include "boost_tcp_client.h"
 #include <boost/lexical_cast.hpp>
 #include "BoundedBuffer.h"
 #include "VITA49_struct_keywords.h"
@@ -110,6 +112,7 @@ public:
     void setStartOfYear();
     /* thread function */
     void RECEIVER();
+    void RECEIVER_TCP();
     void RECEIVER_M();
 
     // Property change listeners
@@ -131,6 +134,7 @@ private:
     boost::mutex running_lock;
     boost::mutex processing_lock;
     boost::mutex teardown_lock;
+    boost::mutex startstop_lock;
     bool launch_rx_thread();
     void destroy_rx_thread();
     void initialize_values();
@@ -150,6 +154,7 @@ bool signalEOS;
     bool multicast;
     multicast_t client;
     unicast_t uni_client;
+    unicast_t uni_tcp_client;
     std::string streamID;
     //bool convertEndianness;
     char* array;
@@ -188,6 +193,7 @@ bool signalEOS;
     // SRI
     boost::mutex sriLock;
     boost::mutex property_lock;
+    boost::mutex clientUsageLock;
     BULKIO::StreamSRI currSRI;
     bool is_input_port_attachment;
     bool createMem;
@@ -305,13 +311,11 @@ bool signalEOS;
     bool receivedValidSRI;
     bool receivedContextPacket;
 
-  private:
-    //OutCharArrayPort   *_dataChar_out;
-    //OutOctetArrayPort  *_dataOctet_out;
-    //OutShortArrayPort  *_dataShort_out;
-    //OutUShortArrayPort *_dataUshort_out;
-    //OutFloatArrayPort  *_dataFloat_out;
-    //OutDoubleArrayPort *_dataDouble_out;
+    bool unicast_udp_open;
+    bool unicast_tcp_open;
+    bool multicast_udp_open;
+
+    TCPClient* tcpClient;
 };
 
 #endif // SOURCEVITA49_IMPL_H

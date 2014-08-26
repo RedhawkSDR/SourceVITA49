@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="ASCII"?>
 <codegen:WaveDevSettings xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:codegen="http://www.redhawk.gov/model/codegen">
   <implSettings key="cpp">
-    <value name="cpp" outputDir="cpp" template="gov.redhawk.ide.codegen.jet.cplusplus.PullPortDataTemplate" generatorId="gov.redhawk.ide.codegen.jet.cplusplus.CplusplusGenerator" primary="true">
+    <value name="cpp" outputDir="cpp" template="redhawk.codegen.jinja.cpp.component.pull" generatorId="gov.redhawk.ide.codegen.jinja.cplusplus.CplusplusGenerator" primary="true">
       <properties id="auto_start" value="FALSE"/>
       <generatedFileCRCs crc="1746641546" file="reconf"/>
       <generatedFileCRCs crc="498842001" file="port_impl.cpp"/>

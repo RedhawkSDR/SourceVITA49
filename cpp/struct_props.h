@@ -1,23 +1,3 @@
-/*
- * This file is protected by Copyright. Please refer to the COPYRIGHT file
- * distributed with this source distribution.
- *
- * This file is part of REDHAWK core.
- *
- * REDHAWK core is free software: you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as published by the
- * Free Software Foundation, either version 3 of the License, or (at your
- * option) any later version.
- *
- * REDHAWK core is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
- * for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see http://www.gnu.org/licenses/.
- */
-
 #ifndef STRUCTPROPS_H
 #define STRUCTPROPS_H
 
@@ -111,7 +91,6 @@ inline bool operator!= (const attachment_override_struct& s1, const attachment_o
 struct connection_status_struct {
     connection_status_struct ()
     {
-        packets_missing = 0;
     };
 
     static std::string getId() {
@@ -120,7 +99,7 @@ struct connection_status_struct {
 
     bool input_enabled;
     std::string input_ip_address;
-    CORBA::Long input_port;
+    unsigned short input_port;
     unsigned short input_vlan;
     CORBA::ULong packets_missing;
     double input_sample_rate;
@@ -154,7 +133,7 @@ inline bool operator>>= (const CORBA::Any& a, connection_status_struct& s) {
         else if (!strcmp("connection_status::data_throughput", props[idx].id)) {
             if (!(props[idx].value >>= s.data_throughput)) return false;
         }
-        else if (!strcmp("connection_status::waitingForContextPacket", props[idx].id)) {
+        else if (!strcmp("connection_status::waiting_for_context_packet", props[idx].id)) {
             if (!(props[idx].value >>= s.waiting_for_context_packet)) return false;
         }
     }
@@ -178,7 +157,7 @@ inline void operator<<= (CORBA::Any& a, const connection_status_struct& s) {
     props[5].value <<= s.input_sample_rate;
     props[6].id = CORBA::string_dup("connection_status::data_throughput");
     props[6].value <<= s.data_throughput;
-    props[7].id = CORBA::string_dup("connection_status::waitingForContextPacket");
+    props[7].id = CORBA::string_dup("connection_status::waiting_for_context_packet");
     props[7].value <<= s.waiting_for_context_packet;
     a <<= props;
 };

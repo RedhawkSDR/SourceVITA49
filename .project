@@ -1,15 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<projectDescription>
+<?xml version="1.0" encoding="UTF-8"?><projectDescription>
 	<name>SourceVITA49</name>
 	<comment></comment>
 	<projects>
 	</projects>
 	<buildSpec>
-		<buildCommand>
-			<name>gov.redhawk.ide.codegen.builders.TopLevelBuildScript</name>
-			<arguments>
-			</arguments>
-		</buildCommand>
 		<buildCommand>
 			<name>gov.redhawk.ide.codegen.jet.cplusplus.builder</name>
 			<arguments>
@@ -21,7 +15,7 @@
 			<arguments>
 				<dictionary>
 					<key>?name?</key>
-					<value></value>
+					<value/>
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.append_environment</key>
@@ -33,7 +27,7 @@
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.buildArguments</key>
-					<value></value>
+					<value/>
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.buildCommand</key>

@@ -30,10 +30,10 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string>
-#include "unicast.h"
+#include "unicast_tcp.h"
 
 /* it is probably desirable to convert to C++ and throw exceptions instead. */
-static inline void verify_ (int condition, const char* message, const char* condtext, const char* file, int line) {
+static inline void verify_tcp_ (int condition, const char* message, const char* condtext, const char* file, int line) {
   if (!condition) {
 	char msg[100];
 	sprintf(msg, "Verify failed '%s' at line %d: %s (%s)\n", file, line, message, condtext);
@@ -42,23 +42,23 @@ static inline void verify_ (int condition, const char* message, const char* cond
     throw(BadParameterError3(msg));
   }
 }
-#define verify(CONDITION, MESSAGE) verify_(CONDITION, MESSAGE, #CONDITION, __FILE__, __LINE__)
+#define verify_tcp(CONDITION, MESSAGE) verify_tcp_(CONDITION, MESSAGE, #CONDITION, __FILE__, __LINE__)
 
 
-static unicast_t unicast_open_ (const char* iface, const char* group, int port)
+static unicast_t unicast_tcp_open_ (const char* iface, const char* group, int port, bool skipBind)
 {
   unsigned int ii;
-
-  unicast_t unicast = { socket(AF_INET, SOCK_DGRAM, IPPROTO_IP) };
-  verify(unicast.sock >= 0, "create socket");
+  int status;
+  unicast_t unicast = { socket(AF_INET, SOCK_STREAM, IPPROTO_IP) };
+  verify_tcp(unicast.sock >= 0, "create socket");
   int one = 1;
-  verify(setsockopt(unicast.sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) == 0, "reuse address");
+  verify_tcp(setsockopt(unicast.sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) == 0, "reuse address");
   /* Enumerate all the devices. */
   struct ifconf devs = {0};
   devs.ifc_len = 512*sizeof(struct ifreq);
   devs.ifc_buf = (char*)malloc(devs.ifc_len);
-  verify(devs.ifc_buf != 0, "memory allocation");
-  verify(ioctl(unicast.sock, SIOCGIFCONF, &devs) >= 0, "enum devices");
+  verify_tcp(devs.ifc_buf != 0, "memory allocation");
+  verify_tcp(ioctl(unicast.sock, SIOCGIFCONF, &devs) >= 0, "enum devices");
   for (ii = 0; ii<devs.ifc_len/sizeof(struct ifreq); ii++) {
 	  bool any = (!*iface);
 	  bool any_interface_vlan_match = false;
@@ -72,15 +72,19 @@ static unicast_t unicast_open_ (const char* iface, const char* group, int port)
 	  if (any || any_interface_vlan_match || interface_exact_match) {
 		  try{
 			  struct ifreq dev = devs.ifc_req[ii];
-			  verify(ioctl(unicast.sock, SIOCGIFFLAGS, &dev) >= 0, "get flags");
-			  verify(dev.ifr_flags & IFF_UP, "interface up");
-			  //verify(!(dev.ifr_flags & IFF_LOOPBACK), "not loopback");
-			  verify(ioctl(unicast.sock, SIOCGIFINDEX, &dev) == 0, "get index");
+			  verify_tcp(ioctl(unicast.sock, SIOCGIFFLAGS, &dev) >= 0, "get flags");
+			  verify_tcp(dev.ifr_flags & IFF_UP, "interface up");
+			  //verify_tcp(!(dev.ifr_flags & IFF_LOOPBACK), "not loopback");
+			  verify_tcp(ioctl(unicast.sock, SIOCGIFINDEX, &dev) == 0, "get index");
 			  unicast.addr.sin_family = AF_INET;
 			  unicast.addr.sin_addr.s_addr = inet_addr(group);//mreqn.imr_multiaddr.s_addr;
 			  unicast.addr.sin_port = htons(port);
-			  if (bind(unicast.sock, (struct sockaddr*)&unicast.addr, sizeof(struct sockaddr)) < 0)
-				  	 printf(" Unable to bind socket (%i) to address (%d) \n", unicast.sock,unicast.addr);
+
+              // Bind to socket
+              if (!skipBind) {
+                status = bind(unicast.sock, (struct sockaddr*)&unicast.addr, sizeof(struct sockaddr));
+                if (status == -1)	printf(" Unable to bind socket (%i) to address (%d) \n", unicast.sock,unicast.addr);
+              }
 
 			  free(devs.ifc_buf);
 			  return unicast;
@@ -98,51 +102,90 @@ static unicast_t unicast_open_ (const char* iface, const char* group, int port)
 }
 
 
-unicast_t unicast_client (const char* iface, const char* group, int port)
+unicast_t unicast_tcp_client (const char* iface, const char* group, int port)
 {
-  unicast_t client = unicast_open_(iface, group, port);
+  unicast_t client = unicast_tcp_open_(iface, group, port, true);
   if (client.sock != -1) {
     int size = 128*1024*1024;
-    verify(setsockopt(client.sock, SOL_SOCKET, SO_RCVBUF, &size, sizeof(int)) == 0, "set recvbuf size");
+    verify_tcp(setsockopt(client.sock, SOL_SOCKET, SO_RCVBUF, &size, sizeof(int)) == 0, "set recvbuf size");
   }
+
+  int status;
+  status = connect(client.sock, (struct sockaddr*)&client.addr, sizeof(struct sockaddr));
+  if (status == -1) {
+      printf("Error: Client could not connect\n");
+  }
+  
   return client;
 }
 
 
-ssize_t unicast_receive (unicast_t client, void* buffer, size_t bytes, unsigned int to_in_msecs)
+ssize_t unicast_tcp_receive (unicast_t client, void* buffer, size_t bytes, unsigned int to_in_msecs)
 {
   size_t bytes_read = 0;
-  int flags = unicast_poll_in(client, to_in_msecs); //0 is MSG_DONTWAIT
+  int flags = unicast_tcp_poll_in(client, to_in_msecs); //0 is MSG_DONTWAIT
   if (flags)
   	bytes_read = recv(client.sock, buffer, bytes, flags);
   return bytes_read;
 }
 
 
-unicast_t unicast_server (const char* iface, const char* group, int port)
+unicast_t unicast_tcp_server (const char* iface, const char* group, int port)
 {
-  unicast_t server = unicast_open_(iface, group, port);
-  if (server.sock != -1) {
+  unicast_t server = unicast_tcp_open_(iface, group, port, false);
+  if (server.sock != -1) { 
     uint8_t ttl = 32;
-    verify(setsockopt(server.sock, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) == 0, "set ttl");
+    verify_tcp(setsockopt(server.sock, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) == 0, "set ttl");
   }
+
   return server;
 }
 
+int unicast_tcp_wait_for_client (unicast_t server)
+{
+    struct sockaddr_storage their_addr; // connector's address information
+    socklen_t sin_size;
+    int new_fd = 0;
+    
+    // Listen to the port
+    int numSocketConnectionsAllowed = 2;
+    if (listen(server.sock, numSocketConnectionsAllowed) == -1) {
+       printf("Unable to listen for connections on socket server!\n");
+       return new_fd; 
+    }
 
-ssize_t unicast_transmit (unicast_t server, const void* buffer, size_t bytes)
+    // Start accepting incoming connections
+    while(1) {
+        sin_size = sizeof their_addr;
+
+        // Blocks while waiting for incoming connection
+        new_fd = accept(server.sock, (struct sockaddr *)&their_addr, &sin_size);
+        if (new_fd == -1) {
+            printf("Error while accepting incoming connection!");
+            continue;
+        }
+        return new_fd;
+    }
+}
+
+
+ssize_t unicast_tcp_transmit (unicast_t server, const void* buffer, size_t bytes)
 {
   return sendto(server.sock, buffer, bytes, 0, (struct sockaddr*)&server.addr, sizeof(server.addr));
 }
 
+ssize_t unicast_tcp_transmit_to_client (unicast_t client, const void* buffer, size_t bytes)
+{
+  return send(client.sock, buffer, bytes, 0);
+}
 
-void unicast_close (unicast_t socket)
+
+void unicast_tcp_close (unicast_t socket)
 {
   close(socket.sock);
 }
 
-
-int unicast_poll_in (unicast_t client, int to_in_msecs)
+int unicast_tcp_poll_in (unicast_t client, int to_in_msecs)
 {
   int _flags = 0;
   if( to_in_msecs > 0){
