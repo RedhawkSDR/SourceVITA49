@@ -49,7 +49,7 @@ static unicast_t unicast_open_ (const char* iface, const char* group, int port)
 {
   unsigned int ii;
 
-  unicast_t unicast = { socket(AF_INET, SOCK_DGRAM, IPPROTO_IP) };
+  unicast_t unicast = { socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) };
   verify(unicast.sock >= 0, "create socket");
   int one = 1;
   verify(setsockopt(unicast.sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) == 0, "reuse address");
