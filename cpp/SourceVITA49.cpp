@@ -159,10 +159,17 @@ void SourceVITA49_i::initialize_values() {
     streamID.empty();
     //uni_client = NULL;
     //client = NULL;
+    int value = 0;
+    if (advanced_configuration.corba_transfersize == 0)
+    	value = bulkio::Const::MaxTransferBytes();
+    else
+    	value = advanced_configuration.corba_transfersize;
+    numBuffers = int(std::max(std::ceil(advanced_configuration.buffer_size / value), (double) numBuffers));
+    numBuffers = int(std::max(std::ceil(value / advanced_configuration.vita49_packet_size), (double) numBuffers));
 }
 
 void SourceVITA49_i::memoryManagement(int maxPacketLength) {
-    boost::mutex::scoped_lock runLock(running_lock);
+    boost::mutex::scoped_lock runLock(processing_lock);
     if (data != NULL)
         free(data);
     data = (unsigned char*) malloc(CORBA_MAX_XFER_BYTES);
@@ -220,7 +227,7 @@ void SourceVITA49_i::advancedConfigurationChanged(const advanced_configuration_s
         createMem = true;
     transferSize = newVal->corba_transfersize;
     if (transferSize <= 0)
-        transferSize = CORBA_MAX_XFER_BYTES;
+        transferSize = bulkio::Const::MaxTransferBytes();
     int numBuffers_l = numBuffers;
     numBuffers = int(std::max(std::ceil(newVal->buffer_size / packetSize), (double) numBuffers));
     numBuffers = int(std::max(std::ceil(transferSize / packetSize), (double) numBuffers));
@@ -392,7 +399,7 @@ BULKIO::PrecisionUTCTime SourceVITA49_i::adjustTime(TimeStamp packet_time, bool 
         unsigned int packetsDropped = 0;
         while (workQueue2.is_not_empty() && curr_attach.attach) {
             boost::mutex::scoped_lock runLock(running_lock);
-            try {
+            try {                
                 workQueue2.pop_back(&packet);
             } catch (...) {
                 serviceThread->updateDelay(0.01);
@@ -1514,7 +1521,7 @@ BULKIO::PrecisionUTCTime SourceVITA49_i::adjustTime(TimeStamp packet_time, bool 
             LOG_WARN(SourceVITA49_i, "Unable to decode received data packet: Malformed payload format - Dropping data packet!")
             return false;
         }
-
+        {
         boost::mutex::scoped_lock runLock(processing_lock);
         _readIndex = 0;
         //vector magic
@@ -1578,12 +1585,12 @@ BULKIO::PrecisionUTCTime SourceVITA49_i::adjustTime(TimeStamp packet_time, bool 
         if (_dataRef != BYTE_ORDER) {
             standardDPacket->swapPayloadBytes(processingPayloadFormat, &array[0]);
         }
-        //std::cout << " readIndex is " << _readIndex << " writeIndex is " << _writeIndex << std::endl;
-        //std::cout << "transferSize is " << transferSize << std::endl;
-        //std::cout << "number_of_bytes " << number_of_bytes << std::endl;
+        std::cout << " readIndex is " << _readIndex << " writeIndex is " << _writeIndex << std::endl;
+        std::cout << "transferSize is " << transferSize << std::endl;
+        std::cout << "number_of_bytes " << number_of_bytes << std::endl;
         needed = transferSize - _writeIndex;
         available = packetLength - _readIndex;
-        //std::cout << "available is " << available << " packet length is "<<packetLength<<std::endl;std::cout.flush();
+        std::cout << "available is " << available << " packet length is "<<packetLength<<std::endl;std::cout.flush();
         while (available > 0 && curr_attach.attach) {
             //std::cout << "available: " << available << std::endl;
             if (available >= needed) {
@@ -1634,6 +1641,7 @@ BULKIO::PrecisionUTCTime SourceVITA49_i::adjustTime(TimeStamp packet_time, bool 
                 }
             }
         }
+}
         return true;
     }
 
