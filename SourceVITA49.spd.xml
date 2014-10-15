@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE softpkg PUBLIC "-//JTRS//DTD SCA V2.2.2 SPD//EN" "softpkg.dtd">
-<softpkg id="DCE:c702495c-5466-4c88-b033-cbbb5aedadd4" name="SourceVITA49" type="sca_compliant" version="2.0.1">
+<softpkg id="DCE:c702495c-5466-4c88-b033-cbbb5aedadd4" name="SourceVITA49" type="sca_compliant" version="3.0.0">
   <title></title>
   <author>
     <name></name>

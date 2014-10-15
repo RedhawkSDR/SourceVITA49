@@ -48,12 +48,10 @@
 #include "BasicContextPacket.h"
 #include "multicast.h"
 #include "unicast.h"
-#include "unicast_tcp.h"
 #include "boost_tcp_client.h"
 #include <boost/lexical_cast.hpp>
 #include "BoundedBuffer.h"
 #include "VITA49_struct_keywords.h"
-//#include "BulkioArrayPush.h"
 
 #define CORBA_MAX_XFER_BYTES omniORB::giopMaxMsgSize() - 512
 #define MTU 1500
@@ -72,209 +70,124 @@ namespace UUID_HELPER {
 class SourceVITA49_i : public SourceVITA49_base, public bulkio::InVITA49Port::Callback {
     ENABLE_LOGGING
 public:
+	////////////////////
+	// C++ Life Cycle //
+	////////////////////
     SourceVITA49_i(const char *uuid, const char *label);
-    //void stop() throw (CF::Resource::StopError, CORBA::SystemException);
-    void stop() throw (CF::Resource::StopError, CORBA::SystemException);
-    void start() throw (CF::Resource::StartError, CORBA::SystemException);
     ~SourceVITA49_i();
 
+    ////////////////////////
+	// REDHAWK Life Cycle //
+	////////////////////////
+    int serviceFunction();
+    void start() throw (CF::Resource::StartError, CORBA::SystemException);
+    void stop() throw (CF::Resource::StopError, CORBA::SystemException);
+
     ///////////////////////////////
-    //  VITA49 Callback Interface
+    // VITA49 Callback Interface //
     ///////////////////////////////
+    //std::string attach(BULKIO::VITA49StreamDefinition stream, std::string userid); // TODO: Can we remove this?
     virtual char* attach(const BULKIO::VITA49StreamDefinition& stream, const char* userid)
              throw (BULKIO::dataVITA49::AttachError, BULKIO::dataVITA49::StreamInputError);
     
+    //void detach(std::string attachId);	// TODO: Can we remove this?
     virtual void detach(const char* attachId);
-
-    void newSriCallback(const BULKIO::StreamSRI &sri );
-    
-    void sriChangedCallback(const BULKIO::StreamSRI &sri );    
-
-    int serviceFunction();
-
-    std::string attach(BULKIO::VITA49StreamDefinition stream, std::string userid);
-
-    void detach(std::string attachId);
-
-    void memoryManagement(int size);
-
-    void __constructor__();
-
-    /* SRI handling functions */
-    void setDefaultSRI();
-
-    void mergeRecSRI(const BULKIO::StreamSRI &recSRI, bool force_refresh = false);
-
-    bool compareSRI(BULKIO::StreamSRI A, BULKIO::StreamSRI B);
-
-    //bool checkFS(VITApacket& packet);
-
-    void setStartOfYear();
-    /* thread function */
-    void RECEIVER();
-    void RECEIVER_TCP();
-    void RECEIVER_M();
-
-    // Property change listeners
-    void interfacePropChanged(const std::string* oldVal, 
-                              const std::string* newVal);
-    
-    void advancedConfigurationChanged(const advanced_configuration_struct* oldVal,
-                                      const advanced_configuration_struct* newVal);
-    
-    void vita49ProcessingChanged(const VITA49Processing_override_struct* oldVal,
-                                 const VITA49Processing_override_struct* newVal);
-    
-    void attachmentOverrideChanged(const attachment_override_struct* oldVal,
-                                   const attachment_override_struct* newVal);
-    
-    bool hasAttachments();
     
 private:
-    boost::mutex running_lock;
-    boost::mutex processing_lock;
-    boost::mutex teardown_lock;
-    boost::mutex startstop_lock;
-    bool launch_rx_thread();
-    void destroy_rx_thread();
+	////////////////////
+	// C++ Life Cycle //
+	////////////////////
+    void __constructor__();
     void initialize_values();
-    bool isStreamDefinitionValid();
-    bool canProcessDataPacket();
-bool signalEOS;
-    bool _bulkioPriority;
-    uint32_t _dataRef;
-    int samplesSinceLastTimeStamp;
-    boost::thread* _receiveThread;
-    //BULKIO::PrecisionUTCTime currentTimeStamp;
-    BULKIO::PrecisionUTCTime lastTimeStamp;
+
+    //////////////////
+    // Data Function//
+    //////////////////
+    void memoryManagement(int size);
+
+    //////////////////////////
+    // Networking Functions //
+    //////////////////////////
+    void RECEIVER();
+    void RECEIVER_M();
+    void RECEIVER_TCP();
+
+    ///////////////////////////////
+    // Property Change Listeners //
+    ///////////////////////////////
+    void advancedConfigurationChanged(const advanced_configuration_struct* oldVal,
+                                      const advanced_configuration_struct* newVal);
+    void attachmentOverrideChanged(const attachment_override_struct* oldVal,
+                                       const attachment_override_struct* newVal);
+    void interfacePropChanged(const std::string* oldVal,
+                              const std::string* newVal);
+    void vita49ProcessingChanged(const VITA49Processing_override_struct* oldVal,
+                                 const VITA49Processing_override_struct* newVal);
+
+    ////////////////////////////
+    // Time and SRI Functions //
+    ////////////////////////////
+	template<typename CORBAXX>
+	bool addModifyKeyword(BULKIO::StreamSRI *sri, CORBA::String_member id,
+			CORBAXX myValue, bool addOnly = false) {
+		CORBA::Any value;
+		value <<= (CORBAXX) myValue;
+		unsigned long keySize = sri->keywords.length();
+		if (!addOnly) {
+			for (unsigned int i = 0; i < keySize; i++) {
+				if (!strcmp(sri->keywords[i].id, id)) {
+					sri->keywords[i].value = value;
+					return true;
+				}
+			}
+		}
+		sri->keywords.length(keySize + 1);
+		if (sri->keywords.length() != keySize + 1)
+			return false;
+		sri->keywords[keySize].id = CORBA::string_dup(id);
+		sri->keywords[keySize].value = value;
+		return true;
+	}
+
     BULKIO::PrecisionUTCTime adjustTime(TimeStamp packet_time, bool subtract);
-    int packetSize;
-    //advanced_struct curr_advanced;
-    char* packet;
-    bool multicast;
-    multicast_t client;
-    unicast_t uni_client;
-    unicast_t uni_tcp_client;
-    std::string streamID;
-    //bool convertEndianness;
-    char* array;
-    //BULKIO::PrecisionUTCTime last_timestamp;
-
-    BULKIO::PrecisionUTCTime T;
-    unsigned long transferSize; //bytes to send in each CORBA transfer if there is not a timeout
-    //long long lastWSec; //holds the last number of whole seconds received
-    time_t startofyear; // whole seconds from EPCH to January 1 of the current year
-    bool getTimeStamp;
-    int number_of_bytes;
-    // Data
-    //packet_struct receivedPacket;
-    omni_mutex dataAvailableMutex;
-    omni_condition* dataAvailableSignal;
-    boost::mutex BankLock;
-
-    int _offset;
-    //
-    // PingPong Queues for processing packets
-    //
-    bounded_buffer_deque_based< std::vector<char> *> Bank2;
-    bounded_buffer_deque_based< std::vector<char> *> workQueue2;
-    unsigned char* data;
-
-    BasicContextPacket *contextPacket_g;
-    BasicDataPacket *standardDPacket;
-    BasicVRTPacket *basicVRTPacket;
-    BasicVRTPacket *basicVRPPacket;
-    BasicVRLFrame *basicVRLFrame;
-
-    //transportMethod_override_struct curr_transport;
-    int _writeIndex;
-    int _readIndex;
-
-    // SRI
-    boost::mutex sriLock;
-    boost::mutex property_lock;
-    boost::mutex clientUsageLock;
-    BULKIO::StreamSRI currSRI;
-    bool is_input_port_attachment;
-    bool createMem;
-
-    double timeDiff();
-
-    bool runThread;
-    //std::ostringstream iface;
-    int numBuffers;
+    bool compareSRI(BULKIO::StreamSRI A, BULKIO::StreamSRI B);
+    void mergeRecSRI(const BULKIO::StreamSRI &recSRI, bool force_refresh = false);
+    void newSriCallback(const BULKIO::StreamSRI &sri );
 
     void printSRI(BULKIO::StreamSRI *sri, std::string strHeader = "DEBUG SRI") {
-        std::cout << strHeader << ":\n";
-        std::cout << "\thversion: " << sri->hversion << std::endl;
-        std::cout << "\txstart: " << sri->xstart << std::endl;
-        std::cout << "\txdelta: " << sri->xdelta << std::endl;
-        std::cout << "\txunits: " << sri->xunits << std::endl;
-        std::cout << "\tsubsize: " << sri->subsize << std::endl;
-        std::cout << "\tystart: " << sri->ystart << std::endl;
-        std::cout << "\tydelta: " << sri->ydelta << std::endl;
-        std::cout << "\tyunits: " << sri->yunits << std::endl;
-        std::cout << "\tmode: " << sri->mode << std::endl;
-        std::cout << "\tstreamID: " << sri->streamID << std::endl;
-        for (size_t i = 0; i < sri->keywords.length(); i++) {
-            std::cout << "\t KEYWORD KEY/VAL :: " << sri->keywords[i].id << ": " << ossie::any_to_string(sri->keywords[i].value) << std::endl;
-        }
-        std::cout << std::endl;
-    }
+		std::cout << strHeader << ":\n";
+		std::cout << "\thversion: " << sri->hversion << std::endl;
+		std::cout << "\txstart: " << sri->xstart << std::endl;
+		std::cout << "\txdelta: " << sri->xdelta << std::endl;
+		std::cout << "\txunits: " << sri->xunits << std::endl;
+		std::cout << "\tsubsize: " << sri->subsize << std::endl;
+		std::cout << "\tystart: " << sri->ystart << std::endl;
+		std::cout << "\tydelta: " << sri->ydelta << std::endl;
+		std::cout << "\tyunits: " << sri->yunits << std::endl;
+		std::cout << "\tmode: " << sri->mode << std::endl;
+		std::cout << "\tstreamID: " << sri->streamID << std::endl;
+		for (size_t i = 0; i < sri->keywords.length(); i++) {
+			std::cout << "\t KEYWORD KEY/VAL :: " << sri->keywords[i].id << ": "
+					<< ossie::any_to_string(sri->keywords[i].value)
+					<< std::endl;
+		}
+		std::cout << std::endl;
+	}
 
-    template <typename CORBAXX>
-    bool addModifyKeyword(BULKIO::StreamSRI *sri, CORBA::String_member id, CORBAXX myValue, bool addOnly = false) {
-        CORBA::Any value;
-        value <<= (CORBAXX) myValue;
-        unsigned long keySize = sri->keywords.length();
-        if (!addOnly) {
-            for (unsigned int i = 0; i < keySize; i++) {
-                if (!strcmp(sri->keywords[i].id, id)) {
-                    sri->keywords[i].value = value;
-                    return true;
-                }
-            }
-        }
-        sri->keywords.length(keySize + 1);
-        if (sri->keywords.length() != keySize + 1)
-            return false;
-        sri->keywords[keySize].id = CORBA::string_dup(id);
-        sri->keywords[keySize].value = value;
-        return true;
-    }
-    
-    BULKIO::VITA49StreamDefinition streamDefinition;
-    BULKIO::VITA49StreamDefinition contextStreamDefinition;
-    BULKIO::VITA49StreamDefinition overrideStreamDefinition;
-    
-    void process_context(std::vector<char> *packet);
-    bool process_data_packet(std::vector<char> *packet);
-    void resetPayloadFormat();
-    void resetStreamDefinition(BULKIO::VITA49StreamDefinition& streamDef);
-    
-    PayloadFormat processingPayloadFormat;
-    PayloadFormat contextPayloadFormat;
-    double inputSampleRate;
-    TimeStamp nextTimeStamp;
-    Ephemeris processingEphemeris;
-    Ephemeris processingEphemerisRel;
-    Geolocation processingGeolocation;
-    Geolocation processingGEOINS;
-    GeoSentences processingGeoSentences;
-    GEOLOCATION_GPS_struct geolocation_gps_structure;
-    GEOLOCATION_INS_struct geolocation_ins_structure;
-    EPHEMERIS_ECEF_struct ephemeris_ecef_structure;
-    EPHEMERIS_RELATIVE_struct ephemeris_relative_structure;
+    void setDefaultSRI();
+    void setStartOfYear();
+    void sriChangedCallback(const BULKIO::StreamSRI &sri );
+    double timeDiff();
 
-    bool packetDataValid;
-    bool payloadFormatInitialized;
+    /////////////////////////
+    // Threading Functions //
+    /////////////////////////
+    void destroy_rx_thread();
+    bool launch_rx_thread();
 
-    bool droppedPacket;
-    bool init;
-
-    unsigned long highMulti;
-    unsigned long lowMulti;
-
+	/////////////////////////////////
+	// VITA49 Processing Functions //
+	/////////////////////////////////
     struct attachment {
         bool manual_override;
         bool attach;
@@ -283,39 +196,135 @@ bool signalEOS;
         int port;
         int vlan;
         bool use_udp_protocol;
-        string attach_id;
+        std::string attach_id;
     };
 
-    int contextPacketCount;
-    int dataPacketCount;
-
-    attachment curr_attach;
-    attachment attach_override_settings;
-    attachment attach_port_settings;
-
-    bool updateAttachSettings();
     void applyAttachSettings();
     void applyAttachSettings(attachment& attachSettings);
-    void resetAttachSettings(attachment& attachSettings);
-    
-    void printStreamDef(const BULKIO::VITA49StreamDefinition& streamDef);
-
+    bool canProcessDataPacket();
+    bool hasAttachments();
     void initPayloadFormat(const BULKIO::VITA49StreamDefinition &stream_definition);
+    bool isStreamDefinitionValid();
 
-    void packetInfo(StandardDataPacket *pkt) {
+    inline void packetInfo(StandardDataPacket *pkt) {
         std::cout << pkt->getClassID() << std::endl;
         std::cout << pkt->getStreamID() << std::endl;
         std::cout << pkt->getPayloadFormat() << std::endl;
         std::cout << pkt->getTimeStamp() << std::endl;
     }
-    bool receivedValidSRI;
-    bool receivedContextPacket;
 
+    void printStreamDef(const BULKIO::VITA49StreamDefinition& streamDef);
+    void process_context(std::vector<char> *packet);
+    bool process_data_packet(std::vector<char> *packet);
+    void resetAttachSettings(attachment& attachSettings);
+    void resetPayloadFormat();
+    void resetStreamDefinition(BULKIO::VITA49StreamDefinition& streamDef);
+    bool updateAttachSettings();
+
+    ////////////
+    // BULKIO //
+    ////////////
+    bool _bulkioPriority;
+    bool signalEOS;
+
+    //////////
+    // Data //
+    //////////
+    char* array;
+    bounded_buffer_deque_based< std::vector<char> *> Bank2;
+    bool createMem;
+    unsigned char *data;
+    omni_condition *dataAvailableSignal;
+    uint32_t _dataRef;
+    bool init;
+    int number_of_bytes;
+    int numBuffers;
+    int _offset;
+    char *packet;
+    int packetSize;
+    int _readIndex;
+    unsigned long transferSize; 			//bytes to send in each CORBA transfer if there is not a timeout
+    bounded_buffer_deque_based< std::vector<char> *> workQueue2;
+    int _writeIndex;
+
+    ///////////
+    // Locks //
+    ///////////
+    omni_mutex dataAvailableMutex;
+    boost::mutex BankLock;
+    boost::mutex clientUsageLock;
+    boost::mutex processing_lock;
+    boost::mutex property_lock;
+    boost::mutex running_lock;
+    boost::mutex sriLock;
+    boost::mutex startstop_lock;
+    boost::mutex teardown_lock;
+
+	////////////////
+	// Networking //
+	////////////////
+    unsigned long highMulti;
+    bool isMulticast;
+    unsigned long lowMulti;
+    multicast_t multi_client;
+    bool multicast_udp_open;
+    unicast_t uni_client;
     bool unicast_udp_open;
     bool unicast_tcp_open;
-    bool multicast_udp_open;
+    TCPClient *tcpClient;
 
-    TCPClient* tcpClient;
+    ///////////////
+    // Threading //
+    ///////////////
+    boost::thread *_receiveThread;
+    bool runThread;
+
+    //////////////////
+    // Time and SRI //
+    //////////////////
+    BULKIO::StreamSRI currSRI;
+    bool getTimeStamp;
+    BULKIO::PrecisionUTCTime lastTimeStamp;
+    TimeStamp nextTimeStamp;
+    bool receivedValidSRI;
+    int samplesSinceLastTimeStamp;
+    time_t startofyear; 					// whole seconds from EPOCH to January 1 of the current year
+    std::string streamID;
+    BULKIO::PrecisionUTCTime T;
+
+    ///////////////////////
+    // VITA49 Processing //
+    ///////////////////////
+    attachment attach_override_settings;
+    attachment attach_port_settings;
+    BasicVRLFrame *basicVRLFrame;
+    BasicVRTPacket *basicVRPPacket;
+    BasicVRTPacket *basicVRTPacket;
+    int contextPacketCount;
+    BasicContextPacket *contextPacket_g;
+    PayloadFormat contextPayloadFormat;
+    BULKIO::VITA49StreamDefinition contextStreamDefinition;
+    attachment curr_attach;
+    int dataPacketCount;
+    bool droppedPacket;
+    EPHEMERIS_ECEF_struct ephemeris_ecef_structure;
+    EPHEMERIS_RELATIVE_struct ephemeris_relative_structure;
+    GEOLOCATION_GPS_struct geolocation_gps_structure;
+    GEOLOCATION_INS_struct geolocation_ins_structure;
+    double inputSampleRate;
+    bool is_input_port_attachment;
+    BULKIO::VITA49StreamDefinition overrideStreamDefinition;
+    bool packetDataValid;
+    bool payloadFormatInitialized;
+    Ephemeris processingEphemeris;
+    Ephemeris processingEphemerisRel;
+    Geolocation processingGEOINS;
+    Geolocation processingGeolocation;
+    GeoSentences processingGeoSentences;
+    PayloadFormat processingPayloadFormat;
+    bool receivedContextPacket;
+    BasicDataPacket *standardDPacket;
+    BULKIO::VITA49StreamDefinition streamDefinition;
 };
 
 #endif // SOURCEVITA49_IMPL_H
