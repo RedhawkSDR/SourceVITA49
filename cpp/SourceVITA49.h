@@ -198,6 +198,12 @@ private:
         bool use_udp_protocol;
         std::string attach_id;
     };
+    enum vrtTypes{
+    	basicVRT,
+    	VRLFrame,
+    	ContextPacket,
+    	DataPacket
+    };
 
     void applyAttachSettings();
     void applyAttachSettings(attachment& attachSettings);
@@ -216,6 +222,53 @@ private:
     void printStreamDef(const BULKIO::VITA49StreamDefinition& streamDef);
     void process_context(std::vector<char> *packet);
     bool process_data_packet(std::vector<char> *packet);
+
+    void rebase_pointer_basicVRL(std::vector<char> *input_pointer){
+    	int offset = 0;
+    	std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
+    						(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(basicVRLFrame->bbuf));
+
+    	vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[offset])));
+    	vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size());
+    	vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+    }
+
+    void rebase_pointer_basicVRP(std::vector<char> *input_pointer){
+    	std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
+    						(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(basicVRPPacket->bbuf));
+
+    	vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[_offset])));
+    	vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size()-_offset);
+    	vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+    }
+
+    void rebase_pointer_basicVRT(std::vector<char> *input_pointer){
+    	std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
+    						(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(basicVRTPacket->bbuf));
+
+    	vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[_offset])));
+    	vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size()-_offset);
+    	vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+    }
+
+    void rebase_pointer_context(std::vector<char> *input_pointer){
+    	std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
+    						(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(contextPacket_g->bbuf));
+
+    	vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[_offset])));
+    	vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size()-_offset);
+    	vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+    }
+
+    void rebase_pointer_data(std::vector<char> *input_pointer){
+    	std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
+    						(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(standardDPacket->bbuf));
+
+    	vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[_offset])));
+    	vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size()-_offset);
+    	vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+    }
+
     void resetAttachSettings(attachment& attachSettings);
     void resetPayloadFormat();
     void resetStreamDefinition(BULKIO::VITA49StreamDefinition& streamDef);

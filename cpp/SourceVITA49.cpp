@@ -45,150 +45,157 @@ PREPARE_LOGGING(SourceVITA49_i)
 ////////////////////
 SourceVITA49_i::SourceVITA49_i(const char *uuid, const char *label) :
 SourceVITA49_base(uuid, label), Bank2(numBuffers), workQueue2(numBuffers) {
-    __constructor__();
+	__constructor__();
 
-    dataVITA49_in->setNewAttachDetachCallback(this);
-    dataVITA49_in->setNewSriListener(this, &SourceVITA49_i::newSriCallback);
-    dataVITA49_in->setSriChangeListener(this, &SourceVITA49_i::sriChangedCallback);
-    dataVITA49_in->setLogger(this->__logger);
-    
-    addPropertyChangeListener("interface", this, &SourceVITA49_i::interfacePropChanged);
-    addPropertyChangeListener("advanced_configuration", this, &SourceVITA49_i::advancedConfigurationChanged);
-    addPropertyChangeListener("VITA49Processing_override", this, &SourceVITA49_i::vita49ProcessingChanged);
-    addPropertyChangeListener("attachment_override", this, &SourceVITA49_i::attachmentOverrideChanged);
+	dataVITA49_in->setNewAttachDetachCallback(this);
+	dataVITA49_in->setNewSriListener(this, &SourceVITA49_i::newSriCallback);
+	dataVITA49_in->setSriChangeListener(this, &SourceVITA49_i::sriChangedCallback);
+	dataVITA49_in->setLogger(this->__logger);
+
+	addPropertyChangeListener("interface", this, &SourceVITA49_i::interfacePropChanged);
+	addPropertyChangeListener("advanced_configuration", this, &SourceVITA49_i::advancedConfigurationChanged);
+	addPropertyChangeListener("VITA49Processing_override", this, &SourceVITA49_i::vita49ProcessingChanged);
+	addPropertyChangeListener("attachment_override", this, &SourceVITA49_i::attachmentOverrideChanged);
 }
 
 SourceVITA49_i::~SourceVITA49_i() {
-    destroy_rx_thread();
-    Bank2.clear();
-    workQueue2.clear();
+	destroy_rx_thread();
+	Bank2.clear();
+	workQueue2.clear();
 
-    if (data != NULL)
-        free(data);
-    if (array != NULL)
-        free(array);
+	if (data != NULL)
+		free(data);
+	if (array != NULL)
+		free(array);
 }
 
 void SourceVITA49_i::__constructor__() {
-    data = NULL;
-    createMem = true;
+	data = NULL;
+	createMem = true;
 
-    TimeStamp *temp = new TimeStamp(IntegerMode_GPS, 0, 0);
+	TimeStamp *temp = new TimeStamp(IntegerMode_GPS, 0, 0);
 
-    processingEphemeris.setTimeStamp(*temp);
-    processingEphemerisRel.setTimeStamp(*temp);
-    processingGeolocation.setTimeStamp(*temp);
-    processingGEOINS.setTimeStamp(*temp);
+	processingEphemeris.setTimeStamp(*temp);
+	processingEphemerisRel.setTimeStamp(*temp);
+	processingGeolocation.setTimeStamp(*temp);
+	processingGEOINS.setTimeStamp(*temp);
 
-    delete temp;
+	delete temp;
 
-    curr_attach.eth_dev = "eth0";
-    lowMulti = inet_network("224.0.0.0");
-    highMulti = inet_network("239.255.255.250");
+	curr_attach.eth_dev = "eth0";
+	lowMulti = inet_network("224.0.0.0");
+	highMulti = inet_network("239.255.255.250");
 
-    numBuffers = 1;
-    contextPacket_g = new BasicContextPacket();
-    standardDPacket = new BasicDataPacket();
-    basicVRTPacket = new BasicVRTPacket();
-    basicVRPPacket = new BasicVRTPacket();
+	numBuffers = 1;
+	contextPacket_g = new BasicContextPacket();
+	standardDPacket = new BasicDataPacket();
+	basicVRTPacket = new BasicVRTPacket();
+	basicVRPPacket = new BasicVRTPacket();
+	basicVRLFrame  = new BasicVRLFrame();
+	initialize_values();
+	setStartOfYear();
 
-    initialize_values();
-    setStartOfYear();
+	resetAttachSettings(attach_override_settings);
+	resetAttachSettings(attach_port_settings);
 
-    resetAttachSettings(attach_override_settings);
-    resetAttachSettings(attach_port_settings);
-
-    transferSize = CORBA_MAX_XFER_BYTES;
-    unicast_udp_open = false;
-    unicast_tcp_open = false;
-    multicast_udp_open = false;
-    tcpClient = NULL;
+	transferSize = CORBA_MAX_XFER_BYTES;
+	unicast_udp_open = false;
+	unicast_tcp_open = false;
+	multicast_udp_open = false;
+	tcpClient = NULL;
 }
 
 void SourceVITA49_i::initialize_values() {
-    createMem = true;
-    isMulticast = false;
+	createMem = true;
+	isMulticast = false;
 
-    contextPacketCount = 0;
-    dataPacketCount = 0;
-    getTimeStamp = true;
+	contextPacketCount = 0;
+	dataPacketCount = 0;
+	getTimeStamp = true;
 
-    setDefaultSRI();
+	setDefaultSRI();
 
-    number_of_bytes = 0;
-    _writeIndex = 0;
-    _readIndex = 0;
-    packetSize = 1500;
-    _offset = 0;
-    _dataRef = BYTE_ORDER;
-    T.twsec = 0;
-    T.tfsec = 0;
-    lastTimeStamp.twsec = 0;
-    lastTimeStamp.tfsec = 0;
+	number_of_bytes = 0;
+	_writeIndex = 0;
+	_readIndex = 0;
+	packetSize = this->advanced_configuration.vita49_packet_size;
+	_offset = 0;
+	_dataRef = BYTE_ORDER;
+	T.twsec = 0;
+	T.tfsec = 0;
+	lastTimeStamp.twsec = 0;
+	lastTimeStamp.tfsec = 0;
 
-    receivedValidSRI = false;
-    receivedContextPacket = false;
+	receivedValidSRI = false;
+	receivedContextPacket = false;
 
-    resetStreamDefinition(streamDefinition);
+	resetStreamDefinition(streamDefinition);
 
-    connection_status.input_enabled = false;
-    connection_status.input_ip_address = ossie::corba::returnString("127.0.0.1");
-    connection_status.input_port = 0;
-    connection_status.input_sample_rate = 0.0;
-    connection_status.input_vlan = 0;
-    connection_status.packets_missing = 0;
-    connection_status.data_throughput = 0.0;
-    connection_status.waiting_for_context_packet = true;
+	connection_status.input_enabled = false;
+	connection_status.input_ip_address = ossie::corba::returnString("127.0.0.1");
+	connection_status.input_port = 0;
+	connection_status.input_sample_rate = 0.0;
+	connection_status.input_vlan = 0;
+	connection_status.packets_missing = 0;
+	connection_status.data_throughput = 0.0;
+	connection_status.waiting_for_context_packet = true;
 
-    samplesSinceLastTimeStamp = 0;
+	samplesSinceLastTimeStamp = 0;
 
-    resetAttachSettings(curr_attach);
+	resetAttachSettings(curr_attach);
 
-    inputSampleRate = 0.0;
+	inputSampleRate = 0.0;
 
-    droppedPacket = false;
-    init = true;
-    array = NULL;
-    _receiveThread = NULL;
-    streamID.clear();
+	droppedPacket = false;
+	init = true;
+	array = NULL;
+	_receiveThread = NULL;
+	streamID.clear();
 
-    int value = 0;
-    if (advanced_configuration.corba_transfersize == 0)
-    	value = bulkio::Const::MaxTransferBytes();
-    else
-    	value = advanced_configuration.corba_transfersize;
-    numBuffers = int(std::max(std::ceil(advanced_configuration.buffer_size / value), (double) numBuffers));
-    numBuffers = int(std::max(std::ceil(value / advanced_configuration.vita49_packet_size), (double) numBuffers));
+	int value = 0;
+	if (advanced_configuration.corba_transfersize == 0)
+		value = bulkio::Const::MaxTransferBytes();
+	else
+		value = advanced_configuration.corba_transfersize;
+	numBuffers = int(std::max(std::ceil(advanced_configuration.buffer_size / value), (double) numBuffers));
+	numBuffers = int(std::max(std::ceil(value / advanced_configuration.vita49_packet_size), (double) numBuffers));
 }
 
 //////////////////
 // Data Function//
 //////////////////
 void SourceVITA49_i::memoryManagement(int maxPacketLength) {
-    boost::mutex::scoped_lock runLock(processing_lock);
-    if (data != NULL)
-        free(data);
-    data = (unsigned char*) malloc(CORBA_MAX_XFER_BYTES);
+	std::cout << " HELLO I have made it here ..... " << std::endl; std::cout.flush();
+	boost::mutex::scoped_lock runLock(processing_lock);
+	std::cout << " Past the mutex " << std::endl;std::cout.flush();
+	if (data != NULL)
+		free(data);
+	data = (unsigned char*) malloc(CORBA_MAX_XFER_BYTES);
 
-    if (array != NULL)
-        free(array);
-    array = (char*) malloc(CORBA_MAX_XFER_BYTES);
+	if (array != NULL)
+		free(array);
+	array = (char*) malloc(CORBA_MAX_XFER_BYTES);
+	std::cout << "Attempting to clear the buffers" << std::endl;std::cout.flush();
+	Bank2.clear();
+	workQueue2.clear();
+	std::cout << "Cleared the buffers" << std::endl;
+	Bank2.set_capacity(numBuffers);
+	workQueue2.set_capacity(numBuffers);
+	std::cout << "Set buffer capacity" << std::endl;
+	std::cout << "Num Buffers: " << numBuffers << std::endl;
 
-    Bank2.clear();
-    workQueue2.clear();
-    Bank2.set_capacity(numBuffers);
-    workQueue2.set_capacity(numBuffers);
-
-    for (int i = 0; i < numBuffers; ++i) {
-        try {
-            Bank2.push_front(new std::vector<char>(packetSize));
-        } catch (...) {
-            // we are stopping so just break out of loop
-            break;
-        }
-    }
-
-    createMem = false;
+	for (int i = 0; i < numBuffers; ++i) {
+		try {
+			Bank2.push_front(new std::vector<char>(maxPacketLength));
+		} catch (...) {
+			std::cout << "ouch" << std::endl;
+			// we are stopping so just break out of loop
+			break;
+		}
+	}
+	std::cout << "Created buffers" << std::endl;
+	advanced_configuration.vita49_packet_size = maxPacketLength;
+	createMem = false;
 }
 
 //////////////////////////
@@ -211,20 +218,26 @@ void SourceVITA49_i::memoryManagement(int maxPacketLength) {
 void SourceVITA49_i::RECEIVER() {
 	std::vector<char> *packet = NULL;
 
+	// Wait for a data packet to determine packet size
+	bool found_data_packet = false;
+
 	//peek at the first message and see if there is a VRL frame there
 	std::vector<char> vec_char(8);
 	int payloadSize = 0;
 
 	//check the first packet for VRL frames
-	int length = recv(uni_client.sock, &vec_char[0], 8, MSG_PEEK);
+	int length = recv(uni_client.sock, &vec_char[0], vec_char.size(), MSG_PEEK);
+
 	if ((length > 0)) {
 		if ((vec_char[0] == vrt::BasicVRLFrame::VRL_FAW_0)
 				&& (vec_char[1] == vrt::BasicVRLFrame::VRL_FAW_1)
 				&& (vec_char[2] == vrt::BasicVRLFrame::VRL_FAW_2)
 				&& (vec_char[3] == vrt::BasicVRLFrame::VRL_FAW_3)) {
 			_offset = 8;
-		} else
+
+		} else{
 			_offset = 0;
+		}
 	}
 
 	while (runThread) {
@@ -237,28 +250,41 @@ void SourceVITA49_i::RECEIVER() {
 			continue;
 		}
 
-		if (runThread)
+		if (runThread) {
 			payloadSize = unicast_receive(uni_client, &((*packet)[0]), packetSize, advanced_configuration.poll_in_time);
 
-		boost::this_thread::interruption_point();
+			boost::this_thread::interruption_point();
 
-		if (payloadSize > 0) {
-			//vector magic
-			std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
-					(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(basicVRTPacket->bbuf));
+			rebase_pointer_basicVRT(packet);
 
-			vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*packet)[_offset])));
-			vectorPointer->_M_finish = vectorPointer->_M_start + (packet->size() - _offset);
-			vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+			if (basicVRTPacket->getPacketLength() > payloadSize && basicVRTPacket->getPacketType() == PacketType_Data && !found_data_packet ) {
+				if (_offset > 0) {
+					rebase_pointer_basicVRL(packet);
+					int pLength = basicVRLFrame->getFrameLength();
+					Bank2.push_front(packet);
+					memoryManagement(pLength);
+					packetSize = pLength;
+				} else {
+					int pLength = basicVRTPacket->getPacketLength();
+					Bank2.push_front(packet);
+					memoryManagement(pLength);
+					packetSize = pLength;
+				}
 
-			if (basicVRTPacket->isPacketValid()) {
-				workQueue2.push_front(packet);
+				found_data_packet = true;
+				continue;
+			}
+
+			if (payloadSize > 0) {
+				if (basicVRTPacket->isPacketValid()) {
+					workQueue2.push_front(packet);
+				} else {
+					Bank2.push_front(packet);
+				}
 			} else {
+				usleep(100000);
 				Bank2.push_front(packet);
 			}
-		} else {
-			usleep(100000);
-			Bank2.push_front(packet);
 		}
 	}
 }
@@ -278,11 +304,16 @@ void SourceVITA49_i::RECEIVER() {
  *******************************************************************************************/
 void SourceVITA49_i::RECEIVER_M() {
 	std::vector<char> *packet = NULL;
+
+	// Wait for a data packet to determine packet size
+	bool found_data_packet = false;
+
+	//peek at the first message and see if there is a VRL frame there
 	std::vector<char> vec_char(8);
 	int payloadSize = 0;
 
 	//check the first packet for VRL frames
-	int length = recv(uni_client.sock, &vec_char[0], 8, MSG_PEEK);
+	int length = recv(multi_client.sock, &vec_char[0], vec_char.size(), MSG_PEEK);
 
 	if ((length > 0)) {
 		if ((vec_char[0] == vrt::BasicVRLFrame::VRL_FAW_0)
@@ -290,8 +321,10 @@ void SourceVITA49_i::RECEIVER_M() {
 				&& (vec_char[2] == vrt::BasicVRLFrame::VRL_FAW_2)
 				&& (vec_char[3] == vrt::BasicVRLFrame::VRL_FAW_3)) {
 			_offset = 8;
-		} else
+
+		} else{
 			_offset = 0;
+		}
 	}
 
 	while (runThread) {
@@ -304,19 +337,31 @@ void SourceVITA49_i::RECEIVER_M() {
 			continue;
 		}
 
-		if (runThread)
-			payloadSize = multicast_receive(multi_client, &((*packet)[0]), packetSize, advanced_configuration.poll_in_time);
+		payloadSize = multicast_receive(multi_client, &((*packet)[0]), packetSize, advanced_configuration.poll_in_time);
 
 		boost::this_thread::interruption_point();
 
+		rebase_pointer_basicVRT(packet);
+
+		if (basicVRTPacket->getPacketLength() > payloadSize && basicVRTPacket->getPacketType() == PacketType_Data && !found_data_packet ) {
+			if (_offset > 0) {
+				rebase_pointer_basicVRL(packet);
+				int pLength = basicVRLFrame->getFrameLength();
+				Bank2.push_front(packet);
+				memoryManagement(pLength);
+				packetSize = pLength;
+			} else {
+				int pLength = basicVRTPacket->getPacketLength();
+				Bank2.push_front(packet);
+				memoryManagement(pLength);
+				packetSize = pLength;
+			}
+
+			found_data_packet = true;
+			continue;
+		}
+
 		if (payloadSize > 0) {
-			std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
-					(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(basicVRTPacket->bbuf));
-
-			vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*packet)[_offset])));
-			vectorPointer->_M_finish = vectorPointer->_M_start + (packet->size() - _offset);
-			vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
-
 			if (basicVRTPacket->isPacketValid()) {
 				workQueue2.push_front(packet);
 			} else {
@@ -354,82 +399,87 @@ void SourceVITA49_i::RECEIVER_TCP() {
 		}
 	}
 
-	// Setup buffers for data and peeking
-	std::vector<char> *packet = NULL;
-	std::vector<char> peeked(16);
+	// Wait for a data packet to determine packet size
+	bool found_data_packet = false;
 
-	// Offset determined flag indicates if we should parse header
-	bool offsetDetermined = false;
-	size_t bytesPeeked = 0;
-	size_t peekedVRTPacketLength = 0;
-	size_t vrlBytesInPacket = 0;
+	std::vector<char> *packet = NULL;
+
+	// Peek at the first message and see if there is a VRL frame there
+	std::vector<char> vec_char(8);
+	int payloadSize = 0;
+
+	//check the first packet for VRL frames
+	int length = tcpClient->peek(vec_char);//recv(multi_client.sock, &vec_char[0], vec_char.size(), MSG_PEEK);
+
+	if ((length > 0)) {
+		if ((vec_char[0] == vrt::BasicVRLFrame::VRL_FAW_0)
+				&& (vec_char[1] == vrt::BasicVRLFrame::VRL_FAW_1)
+				&& (vec_char[2] == vrt::BasicVRLFrame::VRL_FAW_2)
+				&& (vec_char[3] == vrt::BasicVRLFrame::VRL_FAW_3)) {
+			_offset = 8;
+
+		} else{
+			_offset = 0;
+		}
+	}
 
 	while (runThread) {
-		bytesPeeked = 0;
-
-		{
-			boost::mutex::scoped_lock lock(clientUsageLock);
-			// Peek at the data on the socket
-			if (tcpClient) {
-				bytesPeeked = tcpClient->peek(peeked);
-			}
-		}
-
-		// Check if peek read any data
-		if (bytesPeeked <= 0) {
-			sleep(0.1);
-			continue;
-		}
-
-		// Determine the offset by looking at the first 8 bytes
-		if (!offsetDetermined) {
-			if ((peeked.at(0) == vrt::BasicVRLFrame::VRL_FAW_0)
-					&& (peeked.at(1) == vrt::BasicVRLFrame::VRL_FAW_1)
-					&& (peeked.at(2) == vrt::BasicVRLFrame::VRL_FAW_2)
-					&& (peeked.at(3) == vrt::BasicVRLFrame::VRL_FAW_3)) {
-				_offset = 8;
-				vrlBytesInPacket = 12;
-			} else {
-				_offset = 0;
-				vrlBytesInPacket = 0;
-			}
-
-			offsetDetermined = true;
-		}
-
-		// Determine if packet on queue is context or data
-		peekedVRTPacketLength = ((0xFF & ((int32_t) peeked[2 + _offset])) << 10) | ((0xFF & ((int32_t) peeked[3 + _offset])) << 2);
-
 		packet = NULL;
 
+		// this will block until a buffer is available
 		try {
-			// this will block until a buffer is available
 			Bank2.pop_back(&packet);
 		} catch (...) {
 			continue;
 		}
 
-		// Resize the packet to the amount we want to read
-		packet->resize(peekedVRTPacketLength + vrlBytesInPacket);
-
 		{
 			boost::mutex::scoped_lock lock(clientUsageLock);
+
 			// Read socket data into packet
-			if (tcpClient)
-				tcpClient->read(*packet);
+			if (tcpClient) {
+				std::cout << "Reading tcp socket" << std::endl;
+				std::cout << "packetSize is " << packetSize << std::endl;
+				std::cout << "packet->size() is " << packet->size() << std::endl;
+				payloadSize = tcpClient->read(*packet, packetSize);
+				std::cout << "Read it" << std::endl;
+			} else {
+				std::cout << "Uh oh..." << std::endl;
+				break;
+			}
 		}
+
+		if (payloadSize == 0) {
+			Bank2.push_front(packet);
+			continue;
+		}
+
+		std::cout << "packetSize: " << packetSize << std::endl;
+		std::cout << "payloadSize: " << payloadSize << std::endl;
 
 		boost::this_thread::interruption_point();
 
-		if (packet->size() > 0) {
-			//vector magic
-			std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
-					(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(basicVRTPacket->bbuf));
+		rebase_pointer_basicVRT(packet);
 
-			vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*packet)[_offset])));
-			vectorPointer->_M_finish = vectorPointer->_M_start + (packet->size() - _offset);
-			vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+		if (basicVRTPacket->getPacketLength() > payloadSize && basicVRTPacket->getPacketType() == PacketType_Data && !found_data_packet ) {
+			if (_offset > 0) {
+				rebase_pointer_basicVRL(packet);
+				int pLength = basicVRLFrame->getFrameLength();
+				Bank2.push_front(packet);
+				memoryManagement(pLength);
+				packetSize = pLength;
+			} else {
+				int pLength = basicVRTPacket->getPacketLength();
+				Bank2.push_front(packet);
+				memoryManagement(pLength);
+				packetSize = pLength;
+			}
 
+			found_data_packet = true;
+			continue;
+		}
+
+		if (payloadSize > 0) {
 			if (basicVRTPacket->isPacketValid()) {
 				LOG_DEBUG(SourceVITA49_i, "Pushing received packet to workQueue");
 				workQueue2.push_front(packet);
@@ -448,120 +498,120 @@ void SourceVITA49_i::RECEIVER_TCP() {
 // Property Change Listeners //
 ///////////////////////////////
 void SourceVITA49_i::advancedConfigurationChanged(const advanced_configuration_struct* oldVal,
-                                                  const advanced_configuration_struct* newVal) {
-    boost::mutex::scoped_lock lock(property_lock);
-    int temp = int (std::ceil(newVal->buffer_size / packetSize));
-    numBuffers = std::max(temp, numBuffers);
-    int packetSize_l = packetSize;
-    packetSize = newVal->vita49_packet_size;
-    if (packetSize_l != packetSize)
-        createMem = true;
-    transferSize = newVal->corba_transfersize;
-    if (transferSize <= 0)
-        transferSize = bulkio::Const::MaxTransferBytes();
-    int numBuffers_l = numBuffers;
-    numBuffers = int(std::max(std::ceil(newVal->buffer_size / packetSize), (double) numBuffers));
-    numBuffers = int(std::max(std::ceil(transferSize / packetSize), (double) numBuffers));
-    if (numBuffers_l != numBuffers)
-        createMem = true;
+		const advanced_configuration_struct* newVal) {
+	boost::mutex::scoped_lock lock(property_lock);
+	int temp = int (std::ceil(newVal->buffer_size / packetSize));
+	numBuffers = std::max(temp, numBuffers);
+	int packetSize_l = packetSize;
+	packetSize = newVal->vita49_packet_size;
+	if (packetSize_l != packetSize)
+		createMem = true;
+	transferSize = newVal->corba_transfersize;
+	if (transferSize <= 0)
+		transferSize = bulkio::Const::MaxTransferBytes();
+	int numBuffers_l = numBuffers;
+	numBuffers = int(std::max(std::ceil(newVal->buffer_size / packetSize), (double) numBuffers));
+	numBuffers = int(std::max(std::ceil(transferSize / packetSize), (double) numBuffers));
+	if (numBuffers_l != numBuffers)
+		createMem = true;
 }
 
 void SourceVITA49_i::attachmentOverrideChanged(const attachment_override_struct* oldVal,
-                                               const attachment_override_struct* newVal) {
-    if (attachment_override.enabled) {
-        boost::mutex::scoped_lock lock(property_lock);
-        if (curr_attach.attach) {
-            LOG_WARN(SourceVITA49_i, "Currently attached to " << curr_attach.ip_address << " port " << curr_attach.port);
-            LOG_WARN(SourceVITA49_i, "Reseting Connection ");
-        }
+		const attachment_override_struct* newVal) {
+	if (attachment_override.enabled) {
+		boost::mutex::scoped_lock lock(property_lock);
+		if (curr_attach.attach) {
+			LOG_WARN(SourceVITA49_i, "Currently attached to " << curr_attach.ip_address << " port " << curr_attach.port);
+			LOG_WARN(SourceVITA49_i, "Reseting Connection ");
+		}
 
-        // Save off new attachment
-        attach_override_settings.manual_override = true;
-        attach_override_settings.ip_address = attachment_override.ip_address;
-        attach_override_settings.vlan = attachment_override.vlan;
-        attach_override_settings.port = attachment_override.port;
-        attach_override_settings.eth_dev = interface;
-        attach_override_settings.attach_id = UUID_HELPER::new_uuid();
-        attach_override_settings.use_udp_protocol = attachment_override.use_udp_protocol;
+		// Save off new attachment
+		attach_override_settings.manual_override = true;
+		attach_override_settings.ip_address = attachment_override.ip_address;
+		attach_override_settings.vlan = attachment_override.vlan;
+		attach_override_settings.port = attachment_override.port;
+		attach_override_settings.eth_dev = interface;
+		attach_override_settings.attach_id = UUID_HELPER::new_uuid();
+		attach_override_settings.use_udp_protocol = attachment_override.use_udp_protocol;
 
-        streamID = attach_override_settings.attach_id; //"manual_override";
-        currSRI.streamID = streamID.c_str();
+		streamID = attach_override_settings.attach_id; //"manual_override";
+		currSRI.streamID = streamID.c_str();
 
-        destroy_rx_thread();
+		destroy_rx_thread();
 
-        LOG_DEBUG(SourceVITA49_i, "Received via attach: " << curr_attach.ip_address.c_str() << " " << curr_attach.port << " " << curr_attach.vlan);
+		LOG_DEBUG(SourceVITA49_i, "Received via attach: " << curr_attach.ip_address.c_str() << " " << curr_attach.port << " " << curr_attach.vlan);
 
-    } else {
-        // Called the first time override is deactivated
-        if (attach_override_settings.manual_override) {
-            attach_override_settings.manual_override = false;
-            destroy_rx_thread();
-        }
-    }
+	} else {
+		// Called the first time override is deactivated
+		if (attach_override_settings.manual_override) {
+			attach_override_settings.manual_override = false;
+			destroy_rx_thread();
+		}
+	}
 }
 
 void SourceVITA49_i::interfacePropChanged(const std::string* oldVal, const std::string* newVal) {
-    boost::mutex::scoped_lock lock(property_lock);
-    interface = *newVal;
-    curr_attach.eth_dev = interface;
-    destroy_rx_thread();
+	boost::mutex::scoped_lock lock(property_lock);
+	interface = *newVal;
+	curr_attach.eth_dev = interface;
+	destroy_rx_thread();
 }
 
 void SourceVITA49_i::vita49ProcessingChanged(const VITA49Processing_override_struct* oldVal,
-                                             const VITA49Processing_override_struct* newVal) {
-    boost::mutex::scoped_lock lock(property_lock);
-    if (newVal->enable) {
-        overrideStreamDefinition.valid_data_format = true;
-        if (newVal->real_complex_type == 0)
-            overrideStreamDefinition.data_format.complexity = BULKIO::VITA49_REAL;
-        else
-            overrideStreamDefinition.data_format.complexity = BULKIO::VITA49_COMPLEX_CARTESIAN;
+		const VITA49Processing_override_struct* newVal) {
+	boost::mutex::scoped_lock lock(property_lock);
+	if (newVal->enable) {
+		overrideStreamDefinition.valid_data_format = true;
+		if (newVal->real_complex_type == 0)
+			overrideStreamDefinition.data_format.complexity = BULKIO::VITA49_REAL;
+		else
+			overrideStreamDefinition.data_format.complexity = BULKIO::VITA49_COMPLEX_CARTESIAN;
 
-        switch (newVal->data_item_format) {
-            case 0:
-                overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_1P;
-                break;
-            case 1:
-                overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_4P;
-                break;
-            case 2:
-                overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_8T;
-                break;
-            case 3:
-                overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_16T;
-                break;
-            case 4:
-                overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_8U;
-                break;
-            case 5:
-                overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_16U;
-                break;
-            case 6:
-                overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_32F;
-                break;
-            case 7:
-                overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_64F;
-                break;
-            case 8:
-                overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_32T;
-                break;
-            case 9:
-                overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_32U;
-                break;
-            case 10:
-                overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_64T;
-                break;
-            case 11:
-                overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_64U;
-                break;
-        }
+		switch (newVal->data_item_format) {
+		case 0:
+			overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_1P;
+			break;
+		case 1:
+			overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_4P;
+			break;
+		case 2:
+			overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_8T;
+			break;
+		case 3:
+			overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_16T;
+			break;
+		case 4:
+			overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_8U;
+			break;
+		case 5:
+			overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_16U;
+			break;
+		case 6:
+			overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_32F;
+			break;
+		case 7:
+			overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_64F;
+			break;
+		case 8:
+			overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_32T;
+			break;
+		case 9:
+			overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_32U;
+			break;
+		case 10:
+			overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_64T;
+			break;
+		case 11:
+			overrideStreamDefinition.data_format.data_item_format = BULKIO::VITA49_64U;
+			break;
+		}
 
-        overrideStreamDefinition.data_format.repeating = newVal->repeating;
-        overrideStreamDefinition.data_format.event_tag_size = newVal->event_tag_size;
-        overrideStreamDefinition.data_format.channel_tag_size = newVal->channel_tag_size;
-        overrideStreamDefinition.data_format.vector_size = newVal->vector_size;
-        overrideStreamDefinition.data_format.packing_method_processing_efficient = newVal->processing_efficient;
-    }
+		overrideStreamDefinition.data_format.repeating = newVal->repeating;
+		overrideStreamDefinition.data_format.event_tag_size = newVal->event_tag_size;
+		overrideStreamDefinition.data_format.channel_tag_size = newVal->channel_tag_size;
+		overrideStreamDefinition.data_format.vector_size = newVal->vector_size;
+		overrideStreamDefinition.data_format.packing_method_processing_efficient = newVal->processing_efficient;
+	}
 }
 
 ////////////////////////
@@ -571,7 +621,7 @@ int SourceVITA49_i::serviceFunction() {
 	std::vector<char> *packet = NULL;
 
 	if (createMem)
-		memoryManagement(0);
+		memoryManagement(packetSize);
 
 	if (!curr_attach.attach) {
 		if (!launch_rx_thread()) {
@@ -610,12 +660,7 @@ int SourceVITA49_i::serviceFunction() {
 		connection_status.waiting_for_context_packet = !receivedContextPacket;
 		connection_status.input_sample_rate = (CORBA::Double) 1.0 / currSRI.xdelta;
 
-		std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
-				(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(basicVRPPacket->bbuf));
-
-		vectorPointer->_M_start = const_cast<char*>((char*) &((*packet)[_offset]));
-		vectorPointer->_M_finish = vectorPointer->_M_start + (packet->size() - _offset);
-		vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+		rebase_pointer_basicVRP(packet);
 
 		if (basicVRPPacket->getPacketType() == PacketType_Context) {
 			process_context(packet);
@@ -852,17 +897,17 @@ void SourceVITA49_i::mergeRecSRI(const BULKIO::StreamSRI &recSRI, bool force_ref
 }
 
 void SourceVITA49_i::newSriCallback(const BULKIO::StreamSRI &newSri) {
-    LOG_DEBUG(SourceVITA49_i, "Received new sri '" << newSri.streamID << "'");
-    mergeRecSRI(newSri);
-    receivedValidSRI = true;
-    LOG_DEBUG(SourceVITA49_i, "Handled new sri '" << newSri.streamID << "'");
+	LOG_DEBUG(SourceVITA49_i, "Received new sri '" << newSri.streamID << "'");
+	mergeRecSRI(newSri);
+	receivedValidSRI = true;
+	LOG_DEBUG(SourceVITA49_i, "Handled new sri '" << newSri.streamID << "'");
 }
 
 void SourceVITA49_i::sriChangedCallback(const BULKIO::StreamSRI &newSri) {
-    LOG_DEBUG(SourceVITA49_i, "Received sri change on '" << newSri.streamID << "'");
-    mergeRecSRI(newSri);
-    receivedValidSRI = true;
-    LOG_DEBUG(SourceVITA49_i, "Handled sri change on '" << newSri.streamID << "'");
+	LOG_DEBUG(SourceVITA49_i, "Received sri change on '" << newSri.streamID << "'");
+	mergeRecSRI(newSri);
+	receivedValidSRI = true;
+	LOG_DEBUG(SourceVITA49_i, "Handled sri change on '" << newSri.streamID << "'");
 }
 
 double SourceVITA49_i::timeDiff() {
@@ -986,7 +1031,7 @@ bool SourceVITA49_i::launch_rx_thread() {
 
 	if ((int)attachedIP == -1) {
 		LOG_ERROR(SourceVITA49_i, "Cannot start RX_THREAD :: Invalid attachment IP")
-		return false;
+						return false;
 	}
 
 	if (attachedIP > lowMulti && attachedIP < highMulti && !curr_attach.ip_address.empty()) {
@@ -1010,8 +1055,8 @@ bool SourceVITA49_i::launch_rx_thread() {
 		//uni_tcp_client = unicast_tcp_client(attachedInterface, attachedIPstr, curr_attach.port);
 
 		//if (uni_tcp_client.sock < 0) {
-			//LOG_ERROR(SourceVITA49_i, "Error: SourceVITA49_i::launch_rx_thread() failed to connect to unicast tcp socket")
-			//return false;
+		//LOG_ERROR(SourceVITA49_i, "Error: SourceVITA49_i::launch_rx_thread() failed to connect to unicast tcp socket")
+		//return false;
 		//}
 
 		unicast_tcp_open = true;
@@ -1021,7 +1066,7 @@ bool SourceVITA49_i::launch_rx_thread() {
 
 		if (uni_client.sock < 0) {
 			LOG_ERROR(SourceVITA49_i, "Error: SourceVITA49_i::launch_rx_thread() failed to connect to unicast udp socket")
-			return false;
+							return false;
 		}
 
 		unicast_udp_open = true;
@@ -1089,7 +1134,7 @@ void SourceVITA49_i::applyAttachSettings(attachment& attachSettings) {
  *    StreamDefinition to open a connection to the socket.  The streamID is returned
  ***********************************************************************************************/
 char* SourceVITA49_i::attach(const BULKIO::VITA49StreamDefinition& stream, const char* userid)
-		throw (BULKIO::dataVITA49::AttachError, BULKIO::dataVITA49::StreamInputError) {
+throw (BULKIO::dataVITA49::AttachError, BULKIO::dataVITA49::StreamInputError) {
 	printStreamDef(stream);
 	boost::mutex::scoped_lock runLock(running_lock);
 
@@ -1265,7 +1310,7 @@ void SourceVITA49_i::printStreamDef(const BULKIO::VITA49StreamDefinition& stream
 	LOG_DEBUG(SourceVITA49_i, space << "valid_data_format: " << streamDef.valid_data_format);
 	LOG_DEBUG(SourceVITA49_i, space << "data_format: ");
 	LOG_DEBUG(SourceVITA49_i, space << space << "packing_method_processing_efficient: " <<
-				streamDef.data_format.packing_method_processing_efficient);
+			streamDef.data_format.packing_method_processing_efficient);
 	LOG_DEBUG(SourceVITA49_i, space << space << "complexity: " << streamDef.data_format.complexity);
 	LOG_DEBUG(SourceVITA49_i, space << space << "data_item_format: " << streamDef.data_format.data_item_format);
 	LOG_DEBUG(SourceVITA49_i, space << space << "repeating: " << streamDef.data_format.repeating);
@@ -1299,12 +1344,7 @@ void SourceVITA49_i::process_context(std::vector<char> *packet) {
 	T_l.twsec = 0.0;
 	T_l.tfsec = 0.0;
 
-	//vector magic!
-	std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
-			(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(contextPacket_g->bbuf));
-	vectorPointer->_M_start = const_cast<char*>((char*) &((*packet)[_offset]));
-	vectorPointer->_M_finish = vectorPointer->_M_start + (packet->size() - _offset);
-	vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+	rebase_pointer_context(packet);
 
 	if (!isNull(contextPacket_g->getStreamID()) && streamID.empty()) {
 		streamID = contextPacket_g->getStreamID();
@@ -1715,7 +1755,7 @@ void SourceVITA49_i::process_context(std::vector<char> *packet) {
 			//				ephemeris_ecef_structure.ROTATIONAL_ACCELERATION_PHI = processingEphemeris.getRotationalAccelerationPhi();
 			//			else
 			//				ephemeris_ecef_structure.ROTATIONAL_ACCELERATION_PHI = 0.0;
-			*/
+			 */
 
 			addModifyKeyword<EPHEMERIS_ECEF_struct>(&outputSRI, "EPHEMERIS_ECEF", ephemeris_ecef_structure);
 		}
@@ -1830,7 +1870,7 @@ void SourceVITA49_i::process_context(std::vector<char> *packet) {
 			//				ephemeris_relative_structure.ROTATIONAL_ACCELERATION_PHI = processingEphemerisRel.getRotationalAccelerationPhi();
 			//			else
 			//				ephemeris_relative_structure.ROTATIONAL_ACCELERATION_PHI = 0.0;
-			*/
+			 */
 
 			addModifyKeyword<EPHEMERIS_RELATIVE_struct>(&outputSRI,
 					"EPHEMERIS_RELATIVE", ephemeris_relative_structure);
@@ -1902,19 +1942,14 @@ bool SourceVITA49_i::process_data_packet(std::vector<char> *packet) {
 
 	if (number_of_bytes <= 0) {
 		LOG_WARN(SourceVITA49_i, "Unable to decode received data packet: Malformed payload format - Dropping data packet!")
-		return false;
+						return false;
 	}
 
 	{
 		boost::mutex::scoped_lock runLock(processing_lock);
 		_readIndex = 0;
-		//vector magic
-		std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
-				(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(standardDPacket->bbuf));
 
-		vectorPointer->_M_start = const_cast<char*>((char*) &((*packet)[_offset]));
-		vectorPointer->_M_finish = vectorPointer->_M_start + (packet->size() - _offset);
-		vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+		rebase_pointer_data(packet);
 
 		//if we have dropped a packet or this is the first time through....
 		if (!init) {
@@ -2077,7 +2112,7 @@ bool SourceVITA49_i::updateAttachSettings() {
 		applyAttachSettings(attach_port_settings);
 	} else {
 		LOG_ERROR(SourceVITA49_i, "Unable to determine attachment settings!")
-		return false;
+						return false;
 	}
 
 	connection_status.input_ip_address = ossie::corba::returnString(curr_attach.ip_address.c_str());

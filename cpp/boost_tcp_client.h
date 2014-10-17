@@ -39,23 +39,41 @@ public:
     void close();
 
     template<typename T>
-	void read(std::vector<char, T> & data, size_t index=0)
+	int read(std::vector<char, T> & data, size_t bytesToRead=0)
 	{
-		int bytesReceived=0;
+		int emptyReadCount = 0;
         boost::system::error_code error;
         std::stringstream ss;
 
+        if (bytesToRead == 0 || bytesToRead > data.size()) {
+        	bytesToRead = data.size();
+        }
+
 		if (_readyToRead()) {
-            try {
-    			bytesReceived = this->_socket.read_some(boost::asio::buffer(&data[index],data.size()-index), error);
-                ss << "TCPClient::read - Bytes Received by socket read: " << bytesReceived;
-                this->_printDebug(ss.str());
-            } catch (std::exception& ex) {
-                std::cerr << "TCPClient::read - Exception occured while reading from socket: " << ex.what() << std::endl;
-                return;
-            }
+			while (bytesToRead > 0) {
+				try {
+					int bytes = this->_socket.read_some(boost::asio::buffer(&data[data.size()-bytesToRead], bytesToRead), error);
+					ss << "TCPClient::read - Bytes Received by socket read: " << bytes;
+					this->_printDebug(ss.str());
+					bytesToRead -= bytes;
+
+					if (bytes == 0) {
+						++emptyReadCount;
+					} else {
+						emptyReadCount = 0;
+					}
+
+					if (emptyReadCount == 10) {
+						std::cout << "Received 10 empty packets..." << std::endl;
+						break;
+					}
+				} catch (std::exception& ex) {
+					std::cerr << "TCPClient::read - Exception occured while reading from socket: " << ex.what() << std::endl;
+					return 0;
+				}
+			}
 		}
-		data.resize(index+bytesReceived);
+		//data.resize(index+bytesReceived);
 
         // Handle read errors
         if (error == boost::asio::error::eof) {
@@ -64,6 +82,8 @@ public:
         } else if (error) {
             std::cerr << "TCPClient::read - Error occured while reading: " << error << std::endl;
         }
+
+        return (data.size() - bytesToRead);
 	}
     
     template<typename T>
