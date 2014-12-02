@@ -19,3 +19,5 @@ redhawk_SOURCES_auto += multicast.h
 redhawk_SOURCES_auto += struct_props.h
 redhawk_SOURCES_auto += unicast.cpp
 redhawk_SOURCES_auto += unicast.h
+redhawk_SOURCES_auto += unicast_tcp.cpp
+redhawk_SOURCES_auto += unicast_tcp.h

@@ -48,6 +48,7 @@
 #include "BasicContextPacket.h"
 #include "multicast.h"
 #include "unicast.h"
+#include "unicast_tcp.h"
 #include "boost_tcp_client.h"
 #include <boost/lexical_cast.hpp>
 #include "BoundedBuffer.h"
@@ -313,9 +314,9 @@ private:
     boost::mutex startstop_lock;
     boost::mutex teardown_lock;
 
-	////////////////
-	// Networking //
-	////////////////
+    ////////////////
+    // Networking //
+    ////////////////
     unsigned long highMulti;
     bool isMulticast;
     unsigned long lowMulti;
@@ -324,7 +325,7 @@ private:
     unicast_t uni_client;
     bool unicast_udp_open;
     bool unicast_tcp_open;
-    TCPClient *tcpClient;
+    unicast_tcp_t tcp_client;
 
     ///////////////
     // Threading //

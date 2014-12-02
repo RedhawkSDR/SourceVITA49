@@ -102,7 +102,6 @@ void SourceVITA49_i::__constructor__() {
 	unicast_udp_open = false;
 	unicast_tcp_open = false;
 	multicast_udp_open = false;
-	tcpClient = NULL;
 }
 
 void SourceVITA49_i::initialize_values() {
@@ -165,9 +164,7 @@ void SourceVITA49_i::initialize_values() {
 // Data Function//
 //////////////////
 void SourceVITA49_i::memoryManagement(int maxPacketLength) {
-	std::cout << " HELLO I have made it here ..... " << std::endl; std::cout.flush();
 	boost::mutex::scoped_lock runLock(processing_lock);
-	std::cout << " Past the mutex " << std::endl;std::cout.flush();
 	if (data != NULL)
 		free(data);
 	data = (unsigned char*) malloc(CORBA_MAX_XFER_BYTES);
@@ -175,25 +172,19 @@ void SourceVITA49_i::memoryManagement(int maxPacketLength) {
 	if (array != NULL)
 		free(array);
 	array = (char*) malloc(CORBA_MAX_XFER_BYTES);
-	std::cout << "Attempting to clear the buffers" << std::endl;std::cout.flush();
 	Bank2.clear();
 	workQueue2.clear();
-	std::cout << "Cleared the buffers" << std::endl;
 	Bank2.set_capacity(numBuffers);
 	workQueue2.set_capacity(numBuffers);
-	std::cout << "Set buffer capacity" << std::endl;
-	std::cout << "Num Buffers: " << numBuffers << std::endl;
 
 	for (int i = 0; i < numBuffers; ++i) {
 		try {
 			Bank2.push_front(new std::vector<char>(maxPacketLength));
 		} catch (...) {
-			std::cout << "ouch" << std::endl;
 			// we are stopping so just break out of loop
 			break;
 		}
 	}
-	std::cout << "Created buffers" << std::endl;
 	advanced_configuration.vita49_packet_size = maxPacketLength;
 	createMem = false;
 }
@@ -218,62 +209,96 @@ void SourceVITA49_i::memoryManagement(int maxPacketLength) {
 void SourceVITA49_i::RECEIVER() {
 	std::vector<char> *packet = NULL;
 
-	// Wait for a data packet to determine packet size
-	bool found_data_packet = false;
+	// Wait for a data packet or VRL frame to determine payload size
+	bool found_payload_size = false;
 
 	//peek at the first message and see if there is a VRL frame there
-	std::vector<char> vec_char(8);
+	std::vector<char> vec_char(BasicVRLFrame::HEADER_LENGTH);
 	int payloadSize = 0;
 
 	//check the first packet for VRL frames
-	int length = recv(uni_client.sock, &vec_char[0], vec_char.size(), MSG_PEEK);
+	int length = recv(uni_client.sock, vec_char.data(), vec_char.size(), MSG_PEEK);
 
 	if ((length > 0)) {
-		if ((vec_char[0] == vrt::BasicVRLFrame::VRL_FAW_0)
-				&& (vec_char[1] == vrt::BasicVRLFrame::VRL_FAW_1)
-				&& (vec_char[2] == vrt::BasicVRLFrame::VRL_FAW_2)
-				&& (vec_char[3] == vrt::BasicVRLFrame::VRL_FAW_3)) {
+		if ((vec_char[0] == BasicVRLFrame::VRL_FAW_0)
+				&& (vec_char[1] == BasicVRLFrame::VRL_FAW_1)
+				&& (vec_char[2] == BasicVRLFrame::VRL_FAW_2)
+				&& (vec_char[3] == BasicVRLFrame::VRL_FAW_3)) {
 			_offset = 8;
-
+			LOG_DEBUG(SourceVITA49_i, "Using VRL Frames");
 		} else{
 			_offset = 0;
+			LOG_DEBUG(SourceVITA49_i, "Not Using VRL Frames");
 		}
 	}
 
 	while (runThread) {
-		packet = NULL;
+		if (not found_payload_size) {
+			if (_offset > 0) {
+				std::vector<char> vrl_vrt_header(BasicVRLFrame::HEADER_LENGTH + BasicVRTPacket::MAX_HEADER_LENGTH);
 
-		// this will block until a buffer is available
-		try {
-			Bank2.pop_back(&packet);
-		} catch (...) {
-			continue;
-		}
+				recv(uni_client.sock, vrl_vrt_header.data(), vrl_vrt_header.size(), MSG_PEEK);
 
-		if (runThread) {
-			payloadSize = unicast_receive(uni_client, &((*packet)[0]), packetSize, advanced_configuration.poll_in_time);
+				rebase_pointer_basicVRT(&vrl_vrt_header);
+
+				if (basicVRTPacket->getPacketType() == PacketType_Data) {
+					LOG_DEBUG(SourceVITA49_i, "Got VRT Packet length of " << basicVRTPacket->getPacketLength() << " bytes");
+
+					rebase_pointer_basicVRL(&vrl_vrt_header);
+
+					int pLength = basicVRLFrame->getFrameLength();
+					memoryManagement(pLength);
+					packetSize = pLength;
+					found_payload_size = true;
+
+					LOG_DEBUG(SourceVITA49_i, "Got VRL Frame length of " << pLength << " bytes");
+				} else if (basicVRTPacket->getPacketType() == PacketType_Context) {
+					// Since this is UDP, just receive some data to throw away the packet
+					recv(uni_client.sock, vrl_vrt_header.data(), vrl_vrt_header.size(), 0);
+
+					LOG_DEBUG(SourceVITA49_i, "Threw away context packet");
+				}
+			} else {
+				std::vector<char> vrt_header(BasicVRTPacket::MAX_HEADER_LENGTH);
+
+				recv(uni_client.sock, vrt_header.data(), vrt_header.size(), MSG_PEEK);
+
+				rebase_pointer_basicVRT(&vrt_header);
+
+				if (basicVRTPacket->getPacketType() == PacketType_Data) {
+					int pLength = basicVRTPacket->getPacketLength();
+					memoryManagement(pLength);
+					packetSize = pLength;
+					found_payload_size = true;
+
+					LOG_DEBUG(SourceVITA49_i, "Got VRT Packet length of " << pLength << " bytes");
+				} else if (basicVRTPacket->getPacketType() == PacketType_Context) {
+					// Since this is UDP, just receive some data to throw away the packet
+					recv(uni_client.sock, vrt_header.data(), vrt_header.size(), 0);
+
+					LOG_DEBUG(SourceVITA49_i, "Threw away context packet");
+				}
+			}
+		} else {
+			packet = NULL;
+
+			// this will block until a buffer is available
+			try {
+				Bank2.pop_back(&packet);
+			} catch (...) {
+				continue;
+			}
+
+			if (not runThread) {
+				Bank2.push_front(packet);
+				break;
+			}
+
+			payloadSize = unicast_receive(uni_client, packet->data(), packetSize, advanced_configuration.poll_in_time);
 
 			boost::this_thread::interruption_point();
 
 			rebase_pointer_basicVRT(packet);
-
-			if (basicVRTPacket->getPacketLength() > payloadSize && basicVRTPacket->getPacketType() == PacketType_Data && !found_data_packet ) {
-				if (_offset > 0) {
-					rebase_pointer_basicVRL(packet);
-					int pLength = basicVRLFrame->getFrameLength();
-					Bank2.push_front(packet);
-					memoryManagement(pLength);
-					packetSize = pLength;
-				} else {
-					int pLength = basicVRTPacket->getPacketLength();
-					Bank2.push_front(packet);
-					memoryManagement(pLength);
-					packetSize = pLength;
-				}
-
-				found_data_packet = true;
-				continue;
-			}
 
 			if (payloadSize > 0) {
 				if (basicVRTPacket->isPacketValid()) {
@@ -305,71 +330,107 @@ void SourceVITA49_i::RECEIVER() {
 void SourceVITA49_i::RECEIVER_M() {
 	std::vector<char> *packet = NULL;
 
-	// Wait for a data packet to determine packet size
-	bool found_data_packet = false;
+	// Wait for a data packet or VRL frame to determine payload size
+	bool found_payload_size = false;
 
 	//peek at the first message and see if there is a VRL frame there
-	std::vector<char> vec_char(8);
+	std::vector<char> vec_char(BasicVRLFrame::HEADER_LENGTH);
 	int payloadSize = 0;
 
 	//check the first packet for VRL frames
-	int length = recv(multi_client.sock, &vec_char[0], vec_char.size(), MSG_PEEK);
+	int length = recv(multi_client.sock, vec_char.data(), vec_char.size(), MSG_PEEK);
 
 	if ((length > 0)) {
-		if ((vec_char[0] == vrt::BasicVRLFrame::VRL_FAW_0)
-				&& (vec_char[1] == vrt::BasicVRLFrame::VRL_FAW_1)
-				&& (vec_char[2] == vrt::BasicVRLFrame::VRL_FAW_2)
-				&& (vec_char[3] == vrt::BasicVRLFrame::VRL_FAW_3)) {
+		if ((vec_char[0] == BasicVRLFrame::VRL_FAW_0)
+				&& (vec_char[1] == BasicVRLFrame::VRL_FAW_1)
+				&& (vec_char[2] == BasicVRLFrame::VRL_FAW_2)
+				&& (vec_char[3] == BasicVRLFrame::VRL_FAW_3)) {
 			_offset = 8;
-
+			LOG_DEBUG(SourceVITA49_i, "Using VRL Frames");
 		} else{
 			_offset = 0;
+			LOG_DEBUG(SourceVITA49_i, "Not Using VRL Frames");
 		}
 	}
 
 	while (runThread) {
-		packet = NULL;
-
-		// this will block until a buffer is available
-		try {
-			Bank2.pop_back(&packet);
-		} catch (...) {
-			continue;
-		}
-
-		payloadSize = multicast_receive(multi_client, &((*packet)[0]), packetSize, advanced_configuration.poll_in_time);
-
-		boost::this_thread::interruption_point();
-
-		rebase_pointer_basicVRT(packet);
-
-		if (basicVRTPacket->getPacketLength() > payloadSize && basicVRTPacket->getPacketType() == PacketType_Data && !found_data_packet ) {
+		if (not found_payload_size) {
 			if (_offset > 0) {
-				rebase_pointer_basicVRL(packet);
-				int pLength = basicVRLFrame->getFrameLength();
-				Bank2.push_front(packet);
-				memoryManagement(pLength);
-				packetSize = pLength;
-			} else {
-				int pLength = basicVRTPacket->getPacketLength();
-				Bank2.push_front(packet);
-				memoryManagement(pLength);
-				packetSize = pLength;
-			}
+				std::vector<char> vrl_vrt_header(BasicVRLFrame::HEADER_LENGTH + BasicVRTPacket::MAX_HEADER_LENGTH);
 
-			found_data_packet = true;
-			continue;
-		}
+				recv(multi_client.sock, vrl_vrt_header.data(), vrl_vrt_header.size(), MSG_PEEK);
 
-		if (payloadSize > 0) {
-			if (basicVRTPacket->isPacketValid()) {
-				workQueue2.push_front(packet);
+				rebase_pointer_basicVRT(&vrl_vrt_header);
+
+				if (basicVRTPacket->getPacketType() == PacketType_Data) {
+					LOG_DEBUG(SourceVITA49_i, "Got VRT Packet length of " << basicVRTPacket->getPacketLength() << " bytes");
+
+					rebase_pointer_basicVRL(&vrl_vrt_header);
+
+					int pLength = basicVRLFrame->getFrameLength();
+					memoryManagement(pLength);
+					packetSize = pLength;
+					found_payload_size = true;
+
+					LOG_DEBUG(SourceVITA49_i, "Got VRL Frame length of " << pLength << " bytes");
+				} else if (basicVRTPacket->getPacketType() == PacketType_Context) {
+					// Since this is UDP, just receive some data to throw away the packet
+					recv(multi_client.sock, vrl_vrt_header.data(), vrl_vrt_header.size(), 0);
+
+					LOG_DEBUG(SourceVITA49_i, "Threw away context packet");
+				}
 			} else {
-				Bank2.push_front(packet);
+				std::vector<char> vrt_header(BasicVRTPacket::MAX_HEADER_LENGTH);
+
+				recv(multi_client.sock, vrt_header.data(), vrt_header.size(), MSG_PEEK);
+
+				rebase_pointer_basicVRT(&vrt_header);
+
+				if (basicVRTPacket->getPacketType() == PacketType_Data) {
+					int pLength = basicVRTPacket->getPacketLength();
+					memoryManagement(pLength);
+					packetSize = pLength;
+					found_payload_size = true;
+
+					LOG_DEBUG(SourceVITA49_i, "Got VRT Packet length of " << pLength << " bytes");
+				} else if (basicVRTPacket->getPacketType() == PacketType_Context) {
+					// Since this is UDP, just receive some data to throw away the packet
+					recv(multi_client.sock, vrt_header.data(), vrt_header.size(), 0);
+
+					LOG_DEBUG(SourceVITA49_i, "Threw away context packet");
+				}
 			}
 		} else {
-			usleep(100000);
-			Bank2.push_front(packet);
+			packet = NULL;
+
+			// this will block until a buffer is available
+			try {
+				Bank2.pop_back(&packet);
+			} catch (...) {
+				continue;
+			}
+
+			if (not runThread) {
+				Bank2.push_front(packet);
+				break;
+			}
+
+			payloadSize = multicast_receive(multi_client, packet->data(), packetSize, advanced_configuration.poll_in_time);
+
+			boost::this_thread::interruption_point();
+
+			rebase_pointer_basicVRT(packet);
+
+			if (payloadSize > 0) {
+				if (basicVRTPacket->isPacketValid()) {
+					workQueue2.push_front(packet);
+				} else {
+					Bank2.push_front(packet);
+				}
+			} else {
+				usleep(100000);
+				Bank2.push_front(packet);
+			}
 		}
 	}
 }
@@ -388,28 +449,17 @@ void SourceVITA49_i::RECEIVER_M() {
  *    workQueue to do a max CORBA transfer.
  *******************************************************************************************/
 void SourceVITA49_i::RECEIVER_TCP() {
-	// Start attempting to connect
-	{
-		boost::mutex::scoped_lock lock(clientUsageLock);
-		if (tcpClient) {
-			tcpClient->connect();
-		} else {
-			LOG_ERROR(SourceVITA49_i, "Unable to start receiver thread - Could not connect client");
-			return;
-		}
-	}
-
-	// Wait for a data packet to determine packet size
-	bool found_data_packet = false;
-
 	std::vector<char> *packet = NULL;
 
-	// Peek at the first message and see if there is a VRL frame there
+	// Wait for a data packet to determine data packet size
+	bool found_payload_size = false;
+
+	//peek at the first message and see if there is a VRL frame there
 	std::vector<char> vec_char(8);
 	int payloadSize = 0;
 
 	//check the first packet for VRL frames
-	int length = tcpClient->peek(vec_char);//recv(multi_client.sock, &vec_char[0], vec_char.size(), MSG_PEEK);
+	int length = recv(tcp_client.sock, &vec_char[0], vec_char.size(), MSG_PEEK);
 
 	if ((length > 0)) {
 		if ((vec_char[0] == vrt::BasicVRLFrame::VRL_FAW_0)
@@ -417,79 +467,95 @@ void SourceVITA49_i::RECEIVER_TCP() {
 				&& (vec_char[2] == vrt::BasicVRLFrame::VRL_FAW_2)
 				&& (vec_char[3] == vrt::BasicVRLFrame::VRL_FAW_3)) {
 			_offset = 8;
-
+			LOG_INFO(SourceVITA49_i, "Using VRL Frames");
 		} else{
 			_offset = 0;
+			LOG_INFO(SourceVITA49_i, "Not Using VRL Frames");
 		}
 	}
 
 	while (runThread) {
-		packet = NULL;
-
-		// this will block until a buffer is available
-		try {
-			Bank2.pop_back(&packet);
-		} catch (...) {
-			continue;
-		}
-
-		{
-			boost::mutex::scoped_lock lock(clientUsageLock);
-
-			// Read socket data into packet
-			if (tcpClient) {
-				std::cout << "Reading tcp socket" << std::endl;
-				std::cout << "packetSize is " << packetSize << std::endl;
-				std::cout << "packet->size() is " << packet->size() << std::endl;
-				payloadSize = tcpClient->read(*packet, packetSize);
-				std::cout << "Read it" << std::endl;
-			} else {
-				std::cout << "Uh oh..." << std::endl;
-				break;
-			}
-		}
-
-		if (payloadSize == 0) {
-			Bank2.push_front(packet);
-			continue;
-		}
-
-		std::cout << "packetSize: " << packetSize << std::endl;
-		std::cout << "payloadSize: " << payloadSize << std::endl;
-
-		boost::this_thread::interruption_point();
-
-		rebase_pointer_basicVRT(packet);
-
-		if (basicVRTPacket->getPacketLength() > payloadSize && basicVRTPacket->getPacketType() == PacketType_Data && !found_data_packet ) {
+		if (not found_payload_size) {
 			if (_offset > 0) {
-				rebase_pointer_basicVRL(packet);
-				int pLength = basicVRLFrame->getFrameLength();
-				Bank2.push_front(packet);
-				memoryManagement(pLength);
-				packetSize = pLength;
-			} else {
-				int pLength = basicVRTPacket->getPacketLength();
-				Bank2.push_front(packet);
-				memoryManagement(pLength);
-				packetSize = pLength;
-			}
+				std::vector<char> vrl_vrt_header(BasicVRLFrame::HEADER_LENGTH + BasicVRTPacket::MAX_HEADER_LENGTH);
 
-			found_data_packet = true;
-			continue;
-		}
+				recv(tcp_client.sock, vrl_vrt_header.data(), vrl_vrt_header.size(), MSG_PEEK);
 
-		if (payloadSize > 0) {
-			if (basicVRTPacket->isPacketValid()) {
-				LOG_DEBUG(SourceVITA49_i, "Pushing received packet to workQueue");
-				workQueue2.push_front(packet);
+				rebase_pointer_basicVRT(&vrl_vrt_header);
+
+				if (basicVRTPacket->getPacketType() == PacketType_Data) {
+					LOG_DEBUG(SourceVITA49_i, "Got VRT Packet length of " << basicVRTPacket->getPacketLength() << " bytes");
+
+					rebase_pointer_basicVRL(&vrl_vrt_header);
+
+					int pLength = basicVRLFrame->getFrameLength();
+					memoryManagement(pLength);
+					packetSize = pLength;
+					found_payload_size = true;
+
+					LOG_DEBUG(SourceVITA49_i, "Got VRL Frame length of " << pLength << " bytes");
+				} else if (basicVRTPacket->getPacketType() == PacketType_Context) {
+					rebase_pointer_basicVRL(&vrl_vrt_header);
+
+					std::vector<char> throwAway(basicVRLFrame->getFrameLength());
+
+					recv(tcp_client.sock, throwAway.data(), throwAway.size(), 0);
+
+					LOG_DEBUG(SourceVITA49_i, "Threw away context packet");
+				}
 			} else {
-				LOG_DEBUG(SourceVITA49_i, "Malformed packet received");
-				Bank2.push_front(packet);
+				std::vector<char> vrt_header(BasicVRTPacket::MAX_HEADER_LENGTH);
+
+				recv(tcp_client.sock, vrt_header.data(), vrt_header.size(), MSG_PEEK);
+
+				rebase_pointer_basicVRT(&vrt_header);
+
+				if (basicVRTPacket->getPacketType() == PacketType_Data) {
+					int pLength = basicVRTPacket->getPacketLength();
+					memoryManagement(pLength);
+					packetSize = pLength;
+					found_payload_size = true;
+
+					LOG_DEBUG(SourceVITA49_i, "Got VRT Packet length of " << pLength << " bytes");
+				} else if (basicVRTPacket->getPacketType() == PacketType_Context) {
+					std::vector<char> throwAway(basicVRTPacket->getPacketLength());
+
+					recv(tcp_client.sock, throwAway.data(), throwAway.size(), 0);
+
+					LOG_DEBUG(SourceVITA49_i, "Threw away context packet");
+				}
 			}
 		} else {
-			usleep(100000);
-			Bank2.push_front(packet);
+			packet = NULL;
+
+			// this will block until a buffer is available
+			try {
+				Bank2.pop_back(&packet);
+			} catch (...) {
+				continue;
+			}
+
+			if (not runThread) {
+				Bank2.push_front(packet);
+				break;
+			}
+
+			payloadSize = unicast_tcp_receive(tcp_client, packet->data(), packetSize, advanced_configuration.poll_in_time);
+
+			boost::this_thread::interruption_point();
+
+			rebase_pointer_basicVRT(packet);
+
+			if (payloadSize > 0) {
+				if (basicVRTPacket->isPacketValid()) {
+					workQueue2.push_front(packet);
+				} else {
+					Bank2.push_front(packet);
+				}
+			} else {
+				usleep(100000);
+				Bank2.push_front(packet);
+			}
 		}
 	}
 }
@@ -716,12 +782,7 @@ void SourceVITA49_i::stop() throw (CF::Resource::StopError, CORBA::SystemExcepti
 	}
 
 	if (unicast_tcp_open) {
-		boost::mutex::scoped_lock lock(clientUsageLock);
-
-		if (tcpClient)
-			delete tcpClient;
-
-		tcpClient = NULL;
+		unicast_tcp_close(tcp_client);
 		unicast_tcp_open = false;
 	}
 
@@ -991,14 +1052,6 @@ void SourceVITA49_i::destroy_rx_thread() {
 		delete _receiveThread;
 		_receiveThread = NULL;
 	}
-
-	boost::mutex::scoped_lock lock(clientUsageLock);
-
-	if (tcpClient) {
-		tcpClient->close();
-		delete tcpClient;
-		tcpClient = NULL;
-	}
 }
 
 bool SourceVITA49_i::launch_rx_thread() {
@@ -1046,18 +1099,12 @@ bool SourceVITA49_i::launch_rx_thread() {
 		multicast_udp_open = true;
 	} else if (!curr_attach.use_udp_protocol) {
 		LOG_DEBUG(SourceVITA49_i, "Enabling unicast TCP client on " << attachedInterface << " " << attachedIPstr << " " << curr_attach.port);
-		{
-			boost::mutex::scoped_lock lock(clientUsageLock);
-			tcpClient = new TCPClient(curr_attach.port, attachedIPstr);
+		tcp_client = unicast_tcp_client(attachedInterface, attachedIPstr, curr_attach.port);
+
+		if (tcp_client.sock < 0) {
+			LOG_ERROR(SourceVITA49_i, "Error: SourceVITA49_i::launch_rx_thread() failed to connect to unicast tcp socket")
+			return false;
 		}
-
-		// TODO: Is this still necessary if we're using the boost tcp class?
-		//uni_tcp_client = unicast_tcp_client(attachedInterface, attachedIPstr, curr_attach.port);
-
-		//if (uni_tcp_client.sock < 0) {
-		//LOG_ERROR(SourceVITA49_i, "Error: SourceVITA49_i::launch_rx_thread() failed to connect to unicast tcp socket")
-		//return false;
-		//}
 
 		unicast_tcp_open = true;
 	} else {
@@ -1066,7 +1113,7 @@ bool SourceVITA49_i::launch_rx_thread() {
 
 		if (uni_client.sock < 0) {
 			LOG_ERROR(SourceVITA49_i, "Error: SourceVITA49_i::launch_rx_thread() failed to connect to unicast udp socket")
-							return false;
+			return false;
 		}
 
 		unicast_udp_open = true;
@@ -1183,14 +1230,17 @@ throw (BULKIO::dataVITA49::AttachError, BULKIO::dataVITA49::StreamInputError) {
 bool SourceVITA49_i::canProcessDataPacket() {
 	boost::mutex::scoped_lock runLock(processing_lock);
 
-	if (VITA49Processing_override.enable && receivedValidSRI)
+	if (VITA49Processing_override.enable && receivedValidSRI) {
 		initPayloadFormat(overrideStreamDefinition);
-	else if (receivedContextPacket)
+	}
+	else if (receivedContextPacket) {
 		processingPayloadFormat = contextPayloadFormat;
+	}
 	else if (isStreamDefinitionValid() && receivedValidSRI) {
 		initPayloadFormat(streamDefinition);
-	} else
+	} else {
 		return false;
+	}
 
 	return true;
 }

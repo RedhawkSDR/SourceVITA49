@@ -73,7 +73,6 @@ public:
 				}
 			}
 		}
-		//data.resize(index+bytesReceived);
 
         // Handle read errors
         if (error == boost::asio::error::eof) {
