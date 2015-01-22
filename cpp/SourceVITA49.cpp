@@ -165,6 +165,7 @@ void SourceVITA49_i::initialize_values() {
 //////////////////
 void SourceVITA49_i::memoryManagement(int maxPacketLength) {
 	boost::mutex::scoped_lock runLock(processing_lock);
+
 	if (data != NULL)
 		free(data);
 	data = (unsigned char*) malloc(CORBA_MAX_XFER_BYTES);
@@ -172,8 +173,15 @@ void SourceVITA49_i::memoryManagement(int maxPacketLength) {
 	if (array != NULL)
 		free(array);
 	array = (char*) malloc(CORBA_MAX_XFER_BYTES);
+
 	Bank2.clear();
 	workQueue2.clear();
+
+	if (numBuffers < int(std::ceil(transferSize / maxPacketLength))) {
+		LOG_INFO(SourceVITA49_i, "Changing number of buffers from " << numBuffers << " to " << int(std::ceil(transferSize / maxPacketLength)));
+		numBuffers = int(std::ceil(transferSize / maxPacketLength));
+	}
+
 	Bank2.set_capacity(numBuffers);
 	workQueue2.set_capacity(numBuffers);
 
@@ -185,6 +193,7 @@ void SourceVITA49_i::memoryManagement(int maxPacketLength) {
 			break;
 		}
 	}
+
 	advanced_configuration.vita49_packet_size = maxPacketLength;
 	createMem = false;
 }
@@ -566,18 +575,32 @@ void SourceVITA49_i::RECEIVER_TCP() {
 void SourceVITA49_i::advancedConfigurationChanged(const advanced_configuration_struct* oldVal,
 		const advanced_configuration_struct* newVal) {
 	boost::mutex::scoped_lock lock(property_lock);
-	int temp = int (std::ceil(newVal->buffer_size / packetSize));
-	numBuffers = std::max(temp, numBuffers);
+
+	if (newVal->buffer_size < newVal->corba_transfersize) {
+		LOG_ERROR(SourceVITA49_i, "Internal buffer size is less than the transfer size.  No data will ever be pushed, reverting to old values");
+		advanced_configuration.buffer_size = oldVal->buffer_size;
+		advanced_configuration.corba_transfersize = oldVal->corba_transfersize;
+	}
+
+	int temp = int (std::ceil(advanced_configuration.buffer_size / packetSize));
 	int packetSize_l = packetSize;
+
+	numBuffers = std::max(temp, numBuffers);
 	packetSize = newVal->vita49_packet_size;
+
 	if (packetSize_l != packetSize)
 		createMem = true;
-	transferSize = newVal->corba_transfersize;
+
+	transferSize = advanced_configuration.buffer_size;
+
 	if (transferSize <= 0)
 		transferSize = bulkio::Const::MaxTransferBytes();
+
 	int numBuffers_l = numBuffers;
-	numBuffers = int(std::max(std::ceil(newVal->buffer_size / packetSize), (double) numBuffers));
+
+	numBuffers = int(std::max(std::ceil(advanced_configuration.buffer_size / packetSize), (double) numBuffers));
 	numBuffers = int(std::max(std::ceil(transferSize / packetSize), (double) numBuffers));
+
 	if (numBuffers_l != numBuffers)
 		createMem = true;
 }
