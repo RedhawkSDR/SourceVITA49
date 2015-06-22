@@ -29,7 +29,7 @@ Prefix:         %{_prefix}
 %define _mandir        %{_prefix}/man
 %define _infodir       %{_prefix}/info
 
-Name:           SourceVITA49
+Name:           rh.SourceVITA49
 Version:        3.0.0
 Release:        1%{?dist}
 Summary:        Component %{name}
@@ -39,32 +39,32 @@ License:        LGPLv3+
 Source0:        %{name}-%{version}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-
-Requires:       redhawk >= 1.10
 BuildRequires:  redhawk-devel >= 1.10
+Requires:       redhawk >= 1.10
 
 # Interface requirements
-Requires:       bulkioInterfaces >= 1.10
 BuildRequires:  bulkioInterfaces >= 1.10
+Requires:       bulkioInterfaces >= 1.10
 
 # C++ requirements
-# C++ requirements
-Requires: redhawk-libVITA49_v1 >= 1.0.0
 BuildRequires: redhawk-libVITA49_v1-devel >= 1.0.0
+Requires: redhawk-libVITA49_v1 >= 1.0.0
 
 %description
-The SourceVITA49 REDHAWK component receives a UDP/multicast or TCP VITA49 packet stream and converts VITA49 packet to data and SRI Keywords within/between REDHAWK domain applications.
+Component %{name}
+ * Commit: __REVISION__
+ * Source Date/Time: __DATETIME__
 
-The mapping context packets to Keywords are documented in the attached VITA49_Keywords.pdf
 
 %prep
 %setup -q
+
 
 %build
 # Implementation cpp
 pushd cpp
 ./reconf
-%define _bindir %{_prefix}/dom/components/SourceVITA49/cpp
+%define _bindir %{_prefix}/dom/components/rh/SourceVITA49/cpp
 %configure
 make %{?_smp_mflags}
 popd
@@ -74,7 +74,7 @@ popd
 rm -rf $RPM_BUILD_ROOT
 # Implementation cpp
 pushd cpp
-%define _bindir %{_prefix}/dom/components/SourceVITA49/cpp
+%define _bindir %{_prefix}/dom/components/rh/SourceVITA49/cpp
 make install DESTDIR=$RPM_BUILD_ROOT
 popd
 
@@ -85,8 +85,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,redhawk,redhawk,-)
-%dir %{_prefix}/dom/components/%{name}
-%{_prefix}/dom/components/%{name}/SourceVITA49.spd.xml
-%{_prefix}/dom/components/%{name}/SourceVITA49.prf.xml
-%{_prefix}/dom/components/%{name}/SourceVITA49.scd.xml
-%{_prefix}/dom/components/%{name}/cpp
+%dir %{_prefix}/dom/components/rh/SourceVITA49
+%{_prefix}/dom/components/rh/SourceVITA49/SourceVITA49.scd.xml
+%{_prefix}/dom/components/rh/SourceVITA49/SourceVITA49.prf.xml
+%{_prefix}/dom/components/rh/SourceVITA49/SourceVITA49.spd.xml
+%{_prefix}/dom/components/rh/SourceVITA49/cpp
+

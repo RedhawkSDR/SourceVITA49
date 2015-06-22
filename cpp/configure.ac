@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
-AC_INIT(SourceVITA49, 2.0.1)
+AC_INIT(rh.SourceVITA49, 3.0.0)
 AM_INIT_AUTOMAKE(nostdinc)
 
 AC_PROG_CC
@@ -46,6 +46,8 @@ AC_SUBST(VITA49_v1_CFLAGS)
 AC_SUBST(VITA49_v1_LIBS)
 CXXFLAGS="$CXXFLAGS $VITA49_v1_CFLAGS"
 LIBS="$LIBS $VITA49_v1_LIBS"
+AX_BOOST_REGEX
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
 

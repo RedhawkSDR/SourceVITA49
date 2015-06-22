@@ -1,9 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE softpkg PUBLIC "-//JTRS//DTD SCA V2.2.2 SPD//EN" "softpkg.dtd">
-<softpkg id="DCE:c702495c-5466-4c88-b033-cbbb5aedadd4" name="SourceVITA49" type="sca_compliant" version="3.0.0">
-  <title></title>
+<softpkg id="DCE:c8cfe2e0-16d3-11e5-9808-3417ebc4aab5" name="rh.SourceVITA49" type="sca_compliant" version="3.0.0">
+  <title/>
   <author>
-    <name></name>
+    <name/>
   </author>
   <description>The SourceVITA49 REDHAWK component connects to a UDP/multicast or TCP VITA49 packet stream and converts the headers to SRI Keywords and data to the BULKIO interface of the user's choice for use within REDHAWK domain applications.
 
