@@ -39,16 +39,17 @@ License:        LGPLv3+
 Source0:        %{name}-%{version}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-BuildRequires:  redhawk-devel >= 1.10
-Requires:       redhawk >= 1.10
+BuildRequires:  redhawk-devel >= 2.0
+Requires:       redhawk >= 2.0
+
+# Shared library requirements
+BuildRequires:  rh.VITA49-devel
+Requires:       rh.VITA49
 
 # Interface requirements
-BuildRequires:  bulkioInterfaces >= 1.10
-Requires:       bulkioInterfaces >= 1.10
+BuildRequires:  bulkioInterfaces >= 2.0
+Requires:       bulkioInterfaces >= 2.0
 
-# C++ requirements
-BuildRequires: redhawk-libVITA49_v1-devel >= 1.0.0
-Requires: redhawk-libVITA49_v1 >= 1.0.0
 
 %description
 Component %{name}
