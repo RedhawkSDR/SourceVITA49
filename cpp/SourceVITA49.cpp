@@ -1443,6 +1443,7 @@ void SourceVITA49_i::process_context(std::vector<char> *packet) {
 			addModifyKeyword<double>(&outputSRI, "TimeStamp Fractional Seconds ", CORBA::Double(T_l.tfsec * 1e-12));
 
 			outputSRI.xstart = T_l.twsec + T_l.tfsec * 1e-12;
+			outputSRI.xstart = 0;
 		} else {
 			T_l.tcstatus = BULKIO::TCS_INVALID;
 			T_l.twsec = packetTime.getTimeStampInteger();
