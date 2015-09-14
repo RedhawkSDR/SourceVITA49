@@ -40,7 +40,7 @@ class ComponentTests(ossie.utils.testing.ScaComponentTestCase):
     def testFunctionality(self):
         #full functionality can be tested using the SinkVITA49 and the test_VITA49.py file
         print "----------------------------- testFunctionality-------------------------"
-        source = sb.Component('SourceVITA49',execparams={"DEBUG_LEVEL":0})
+        source = sb.launch('rh.SourceVITA49',execparams={"DEBUG_LEVEL":0})
         outputS=sb.DataSink();
         passed = True;
         #try to connect to the ports
