@@ -23,10 +23,13 @@ bin_PROGRAMS = SourceVITA49
 
 xmldir = $(prefix)/dom/components/rh/SourceVITA49/
 dist_xml_DATA = ../SourceVITA49.scd.xml ../SourceVITA49.prf.xml ../SourceVITA49.spd.xml
-ACLOCAL_AMFLAGS = -I$(OSSIEHOME)/share/aclocal/ossie
+ACLOCAL_AMFLAGS = -I m4 -I${OSSIEHOME}/share/aclocal/ossie
+AUTOMAKE_OPTIONS = subdir-objects
+
 
 
 distclean-local:
+	rm -rf m4
 	rm -f config.*
 	rm -rf autom4te.cache
 	rm -f acinclude.m4
