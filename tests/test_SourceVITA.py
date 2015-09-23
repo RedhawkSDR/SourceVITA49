@@ -40,7 +40,7 @@ class ComponentTests(ossie.utils.testing.ScaComponentTestCase):
     def testFunctionality(self):
         #full functionality can be tested using the SinkVITA49 and the test_VITA49.py file
         print "----------------------------- testFunctionality-------------------------"
-        source = sb.launch('rh.SourceVITA49',execparams={"DEBUG_LEVEL":0})
+        source = sb.launch('../SourceVITA49.spd.xml',execparams={"DEBUG_LEVEL":0})
         outputS=sb.DataSink();
         passed = True;
         #try to connect to the ports
@@ -68,7 +68,7 @@ class ComponentTests(ossie.utils.testing.ScaComponentTestCase):
             source.VITA49Processing_override.repeating = 1
             source.VITA49Processing_override.event_tag_size = 0
             source.VITA49Processing_override.channel_tag_size = 0
-            source.VITA49Processing_override.data_item_format = 16
+            source.VITA49Processing_override.data_item_format = 5
             source.VITA49Processing_override.vector_size = 1
             source.VITA49Processing_override.processing_efficient = True
             source.VITA49Processing_override.real_complex_type = 1
