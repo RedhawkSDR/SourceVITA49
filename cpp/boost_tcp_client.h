@@ -29,7 +29,7 @@ using boost::asio::ip::tcp;
 class TCPClient : public Debuggable
 {
 public:
-	TCPClient(unsigned short port, const std::string& ip_addr);
+    TCPClient(unsigned short port, const std::string& ip_addr);
     virtual ~TCPClient() { 
         close(); 
     }; 
@@ -39,40 +39,40 @@ public:
     void close();
 
     template<typename T>
-	int read(std::vector<char, T> & data, size_t bytesToRead=0)
-	{
-		int emptyReadCount = 0;
+    int read(std::vector<char, T> & data, size_t bytesToRead=0)
+    {
+        int emptyReadCount = 0;
         boost::system::error_code error;
         std::stringstream ss;
 
         if (bytesToRead == 0 || bytesToRead > data.size()) {
-        	bytesToRead = data.size();
+            bytesToRead = data.size();
         }
 
-		if (_readyToRead()) {
-			while (bytesToRead > 0) {
-				try {
-					int bytes = this->_socket.read_some(boost::asio::buffer(&data[data.size()-bytesToRead], bytesToRead), error);
-					ss << "TCPClient::read - Bytes Received by socket read: " << bytes;
-					this->_printDebug(ss.str());
-					bytesToRead -= bytes;
+        if (_readyToRead()) {
+            while (bytesToRead > 0) {
+                try {
+                    int bytes = this->_socket.read_some(boost::asio::buffer(&data[data.size()-bytesToRead], bytesToRead), error);
+                    ss << "TCPClient::read - Bytes Received by socket read: " << bytes;
+                    this->_printDebug(ss.str());
+                    bytesToRead -= bytes;
 
-					if (bytes == 0) {
-						++emptyReadCount;
-					} else {
-						emptyReadCount = 0;
-					}
+                    if (bytes == 0) {
+                        ++emptyReadCount;
+                    } else {
+                        emptyReadCount = 0;
+                    }
 
-					if (emptyReadCount == 10) {
-						std::cout << "Received 10 empty packets..." << std::endl;
-						break;
-					}
-				} catch (std::exception& ex) {
-					std::cerr << "TCPClient::read - Exception occured while reading from socket: " << ex.what() << std::endl;
-					return 0;
-				}
-			}
-		}
+                    if (emptyReadCount == 10) {
+                        std::cout << "Received 10 empty packets..." << std::endl;
+                        break;
+                    }
+                } catch (std::exception& ex) {
+                    std::cerr << "TCPClient::read - Exception occured while reading from socket: " << ex.what() << std::endl;
+                    return 0;
+                }
+            }
+        }
 
         // Handle read errors
         if (error == boost::asio::error::eof) {
@@ -83,22 +83,22 @@ public:
         }
 
         return (data.size() - bytesToRead);
-	}
-    
+    }
+
     template<typename T>
-	size_t peek(std::vector<char, T> & data)
-	{
-		int bytesReceived=0;
+    size_t peek(std::vector<char, T> & data)
+    {
+        int bytesReceived=0;
         boost::system::error_code error;
         std::stringstream ss;
 
-		if (_readyToRead()) {
+        if (_readyToRead()) {
             try {
-			    bytesReceived = this->_socket.receive(boost::asio::buffer(data), boost::asio::socket_base::message_peek, error);
+                bytesReceived = this->_socket.receive(boost::asio::buffer(data), boost::asio::socket_base::message_peek, error);
             } catch (std::exception& ex) {
                 std::cerr << "TCPClient::peek - Exception occured while receiving from socket: " << ex.what() << std::endl;
             }
-		}
+        }
 
         // Handle read errors
         if (error == boost::asio::error::eof) {
@@ -108,12 +108,12 @@ public:
             std::cerr << "TCPClient::read - Error occured while reading: " << error << std::endl;
         }
         return bytesReceived;
-	}
+    }
 
 protected:
     bool _readyToRead();
-	unsigned short _port;
-	std::string _ipAddr;
+    unsigned short _port;
+    std::string _ipAddr;
     boost::asio::io_service _ioService;
     tcp::socket _socket;
     bool _isConnected;

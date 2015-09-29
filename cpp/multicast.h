@@ -25,18 +25,18 @@
 #include <stdexcept>
 
 class BadParameterError : public std::runtime_error {
-       	public:
-       		BadParameterError(const std::string& what_arg) : std::runtime_error(what_arg) {
-	        }
-    };
+public:
+    BadParameterError(const std::string& what_arg) : std::runtime_error(what_arg) {
+    }
+};
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef struct {
-  int sock;
-  struct sockaddr_in addr;
+    int sock;
+    struct sockaddr_in addr;
 } multicast_t;
 
 multicast_t multicast_client (const char* iface, const char* group, int port);

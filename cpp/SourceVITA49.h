@@ -59,27 +59,27 @@
 #define DEFAULT_PORT 1001
 
 namespace UUID_HELPER {
-    inline std::string new_uuid() {
-        uuid_t new_random_uuid;
-        uuid_generate_random(new_random_uuid);
-        char new_random_uuid_str[38];
-        uuid_unparse(new_random_uuid, new_random_uuid_str);
-        return std::string(new_random_uuid_str);
-    }
+inline std::string new_uuid() {
+    uuid_t new_random_uuid;
+    uuid_generate_random(new_random_uuid);
+    char new_random_uuid_str[38];
+    uuid_unparse(new_random_uuid, new_random_uuid_str);
+    return std::string(new_random_uuid_str);
+}
 }
 
 class SourceVITA49_i : public SourceVITA49_base, public bulkio::InVITA49Port::Callback {
     ENABLE_LOGGING
 public:
-	////////////////////
-	// C++ Life Cycle //
-	////////////////////
+    ////////////////////
+    // C++ Life Cycle //
+    ////////////////////
     SourceVITA49_i(const char *uuid, const char *label);
     ~SourceVITA49_i();
 
     ////////////////////////
-	// REDHAWK Life Cycle //
-	////////////////////////
+    // REDHAWK Life Cycle //
+    ////////////////////////
     int serviceFunction();
     void start() throw (CF::Resource::StartError, CORBA::SystemException);
     void stop() throw (CF::Resource::StopError, CORBA::SystemException);
@@ -89,15 +89,15 @@ public:
     ///////////////////////////////
     //std::string attach(BULKIO::VITA49StreamDefinition stream, std::string userid); // TODO: Can we remove this?
     virtual char* attach(const BULKIO::VITA49StreamDefinition& stream, const char* userid)
-             throw (BULKIO::dataVITA49::AttachError, BULKIO::dataVITA49::StreamInputError);
-    
-    //void detach(std::string attachId);	// TODO: Can we remove this?
+    throw (BULKIO::dataVITA49::AttachError, BULKIO::dataVITA49::StreamInputError);
+
+    //void detach(std::string attachId);    // TODO: Can we remove this?
     virtual void detach(const char* attachId);
-    
+
 private:
-	////////////////////
-	// C++ Life Cycle //
-	////////////////////
+    ////////////////////
+    // C++ Life Cycle //
+    ////////////////////
     void __constructor__();
     void initialize_values();
 
@@ -117,38 +117,38 @@ private:
     // Property Change Listeners //
     ///////////////////////////////
     void advancedConfigurationChanged(const advanced_configuration_struct* oldVal,
-                                      const advanced_configuration_struct* newVal);
+            const advanced_configuration_struct* newVal);
     void attachmentOverrideChanged(const attachment_override_struct* oldVal,
-                                       const attachment_override_struct* newVal);
+            const attachment_override_struct* newVal);
     void interfacePropChanged(const std::string* oldVal,
-                              const std::string* newVal);
+            const std::string* newVal);
     void vita49ProcessingChanged(const VITA49Processing_override_struct* oldVal,
-                                 const VITA49Processing_override_struct* newVal);
+            const VITA49Processing_override_struct* newVal);
 
     ////////////////////////////
     // Time and SRI Functions //
     ////////////////////////////
-	template<typename CORBAXX>
-	bool addModifyKeyword(BULKIO::StreamSRI *sri, CORBA::String_member id,
-			CORBAXX myValue, bool addOnly = false) {
-		CORBA::Any value;
-		value <<= (CORBAXX) myValue;
-		unsigned long keySize = sri->keywords.length();
-		if (!addOnly) {
-			for (unsigned int i = 0; i < keySize; i++) {
-				if (!strcmp(sri->keywords[i].id, id)) {
-					sri->keywords[i].value = value;
-					return true;
-				}
-			}
-		}
-		sri->keywords.length(keySize + 1);
-		if (sri->keywords.length() != keySize + 1)
-			return false;
-		sri->keywords[keySize].id = CORBA::string_dup(id);
-		sri->keywords[keySize].value = value;
-		return true;
-	}
+    template<typename CORBAXX>
+    bool addModifyKeyword(BULKIO::StreamSRI *sri, CORBA::String_member id,
+            CORBAXX myValue, bool addOnly = false) {
+        CORBA::Any value;
+        value <<= (CORBAXX) myValue;
+        unsigned long keySize = sri->keywords.length();
+        if (!addOnly) {
+            for (unsigned int i = 0; i < keySize; i++) {
+                if (!strcmp(sri->keywords[i].id, id)) {
+                    sri->keywords[i].value = value;
+                    return true;
+                }
+            }
+        }
+        sri->keywords.length(keySize + 1);
+        if (sri->keywords.length() != keySize + 1)
+            return false;
+        sri->keywords[keySize].id = CORBA::string_dup(id);
+        sri->keywords[keySize].value = value;
+        return true;
+    }
 
     BULKIO::PrecisionUTCTime adjustTime(TimeStamp packet_time, bool subtract);
     bool compareSRI(BULKIO::StreamSRI A, BULKIO::StreamSRI B);
@@ -156,24 +156,24 @@ private:
     void newSriCallback(const BULKIO::StreamSRI &sri );
 
     void printSRI(BULKIO::StreamSRI *sri, std::string strHeader = "DEBUG SRI") {
-		std::cout << strHeader << ":\n";
-		std::cout << "\thversion: " << sri->hversion << std::endl;
-		std::cout << "\txstart: " << sri->xstart << std::endl;
-		std::cout << "\txdelta: " << sri->xdelta << std::endl;
-		std::cout << "\txunits: " << sri->xunits << std::endl;
-		std::cout << "\tsubsize: " << sri->subsize << std::endl;
-		std::cout << "\tystart: " << sri->ystart << std::endl;
-		std::cout << "\tydelta: " << sri->ydelta << std::endl;
-		std::cout << "\tyunits: " << sri->yunits << std::endl;
-		std::cout << "\tmode: " << sri->mode << std::endl;
-		std::cout << "\tstreamID: " << sri->streamID << std::endl;
-		for (size_t i = 0; i < sri->keywords.length(); i++) {
-			std::cout << "\t KEYWORD KEY/VAL :: " << sri->keywords[i].id << ": "
-					<< ossie::any_to_string(sri->keywords[i].value)
-					<< std::endl;
-		}
-		std::cout << std::endl;
-	}
+        std::cout << strHeader << ":\n";
+        std::cout << "\thversion: " << sri->hversion << std::endl;
+        std::cout << "\txstart: " << sri->xstart << std::endl;
+        std::cout << "\txdelta: " << sri->xdelta << std::endl;
+        std::cout << "\txunits: " << sri->xunits << std::endl;
+        std::cout << "\tsubsize: " << sri->subsize << std::endl;
+        std::cout << "\tystart: " << sri->ystart << std::endl;
+        std::cout << "\tydelta: " << sri->ydelta << std::endl;
+        std::cout << "\tyunits: " << sri->yunits << std::endl;
+        std::cout << "\tmode: " << sri->mode << std::endl;
+        std::cout << "\tstreamID: " << sri->streamID << std::endl;
+        for (size_t i = 0; i < sri->keywords.length(); i++) {
+            std::cout << "\t KEYWORD KEY/VAL :: " << sri->keywords[i].id << ": "
+                    << ossie::any_to_string(sri->keywords[i].value)
+            << std::endl;
+        }
+        std::cout << std::endl;
+    }
 
     void setDefaultSRI();
     void setStartOfYear();
@@ -186,9 +186,9 @@ private:
     void destroy_rx_thread();
     bool launch_rx_thread();
 
-	/////////////////////////////////
-	// VITA49 Processing Functions //
-	/////////////////////////////////
+    /////////////////////////////////
+    // VITA49 Processing Functions //
+    /////////////////////////////////
     struct attachment {
         bool manual_override;
         bool attach;
@@ -200,10 +200,10 @@ private:
         std::string attach_id;
     };
     enum vrtTypes{
-    	basicVRT,
-    	VRLFrame,
-    	ContextPacket,
-    	DataPacket
+        basicVRT,
+        VRLFrame,
+        ContextPacket,
+        DataPacket
     };
 
     void applyAttachSettings();
@@ -225,49 +225,49 @@ private:
     bool process_data_packet(std::vector<char> *packet);
 
     void rebase_pointer_basicVRL(std::vector<char> *input_pointer){
-    	int offset = 0;
-    	std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
-    						(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(basicVRLFrame->bbuf));
+        int offset = 0;
+        std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
+                (std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(basicVRLFrame->bbuf));
 
-    	vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[offset])));
-    	vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size());
-    	vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+        vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[offset])));
+        vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size());
+        vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
     }
 
     void rebase_pointer_basicVRP(std::vector<char> *input_pointer){
-    	std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
-    						(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(basicVRPPacket->bbuf));
+        std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
+                (std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(basicVRPPacket->bbuf));
 
-    	vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[_offset])));
-    	vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size()-_offset);
-    	vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+        vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[_offset])));
+        vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size()-_offset);
+        vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
     }
 
     void rebase_pointer_basicVRT(std::vector<char> *input_pointer){
-    	std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
-    						(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(basicVRTPacket->bbuf));
+        std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
+                (std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(basicVRTPacket->bbuf));
 
-    	vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[_offset])));
-    	vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size()-_offset);
-    	vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+        vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[_offset])));
+        vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size()-_offset);
+        vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
     }
 
     void rebase_pointer_context(std::vector<char> *input_pointer){
-    	std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
-    						(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(contextPacket_g->bbuf));
+        std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
+                (std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(contextPacket_g->bbuf));
 
-    	vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[_offset])));
-    	vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size()-_offset);
-    	vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+        vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[_offset])));
+        vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size()-_offset);
+        vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
     }
 
     void rebase_pointer_data(std::vector<char> *input_pointer){
-    	std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
-    						(std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(standardDPacket->bbuf));
+        std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *vectorPointer =
+                (std::_Vector_base<char, _seqVector::seqVectorAllocator<char> >::_Vector_impl *) ((void*) &(standardDPacket->bbuf));
 
-    	vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[_offset])));
-    	vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size()-_offset);
-    	vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
+        vectorPointer->_M_start = const_cast<char*>(reinterpret_cast<char*>(&((*input_pointer)[_offset])));
+        vectorPointer->_M_finish = vectorPointer->_M_start + (input_pointer->size()-_offset);
+        vectorPointer->_M_end_of_storage = vectorPointer->_M_finish;
     }
 
     void resetAttachSettings(attachment& attachSettings);
@@ -297,7 +297,7 @@ private:
     char *packet;
     int packetSize;
     int _readIndex;
-    unsigned long transferSize; 			//bytes to send in each CORBA transfer if there is not a timeout
+    unsigned long transferSize;             //bytes to send in each CORBA transfer if there is not a timeout
     bounded_buffer_deque_based< std::vector<char> *> workQueue2;
     int _writeIndex;
 
@@ -342,7 +342,7 @@ private:
     TimeStamp nextTimeStamp;
     bool receivedValidSRI;
     int samplesSinceLastTimeStamp;
-    time_t startofyear; 					// whole seconds from EPOCH to January 1 of the current year
+    time_t startofyear;                     // whole seconds from EPOCH to January 1 of the current year
     std::string streamID;
     BULKIO::PrecisionUTCTime T;
 

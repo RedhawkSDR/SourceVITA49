@@ -19,16 +19,16 @@
 #include "boost_tcp_client.h"
 
 TCPClient::TCPClient(unsigned short port, const std::string& ip_addr) :
-    Debuggable(),
-    _port(port),
-    _ipAddr(ip_addr),
-    _ioService(),
-    _socket(_ioService),
-    _isConnected(false)
+Debuggable(),
+_port(port),
+_ipAddr(ip_addr),
+_ioService(),
+_socket(_ioService),
+_isConnected(false)
 {}
 
 bool TCPClient::connect() {
-    
+
     // Don't attempt to connect if connection already established
     if (this->_isConnected) {
         this->_printDebug("TCPClient::connect - Cannot connect - Connection already exists");
@@ -58,11 +58,11 @@ void TCPClient::close() {
     }
 
     boost::system::error_code ec;
-    
+
     try {
         this->_socket.shutdown(tcp::socket::shutdown_send, ec);
         if (ec) this->_printDebug("TCPClient::close - Failed to shutdown socket");
-        
+
         this->_socket.close(ec);
         if (ec) this->_printDebug("TCPClient::close - Failed to close socket");
     } catch (std::exception& ex) {

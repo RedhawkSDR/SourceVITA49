@@ -25,10 +25,10 @@
 #include <stdexcept>
 
 class BadParameterError3 : public std::runtime_error {
-       	public:
-       		BadParameterError3(const std::string& what_arg) : std::runtime_error(what_arg) {
-	        }
-    };
+public:
+    BadParameterError3(const std::string& what_arg) : std::runtime_error(what_arg) {
+    }
+};
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,8 +36,8 @@ extern "C" {
 
 
 typedef struct {
-  int sock;
-  struct sockaddr_in addr;
+    int sock;
+    struct sockaddr_in addr;
 } unicast_t;
 
 unicast_t unicast_client (const char* iface, const char* group, int port);

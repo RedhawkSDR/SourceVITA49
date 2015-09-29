@@ -24,8 +24,8 @@
 class Debuggable
 {
 public:
-	Debuggable(bool debugEnable=false);
-    ~Debuggable() {};
+    Debuggable(bool debugEnable=false);
+    ~Debuggable() {}; 
     void useDebug(bool debugEnable=true);
 protected:
     void _printDebug(const std::string& msg);
