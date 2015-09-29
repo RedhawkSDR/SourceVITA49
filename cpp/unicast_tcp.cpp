@@ -82,11 +82,15 @@ static unicast_tcp_t unicast_tcp_open_ (const char* iface, const char* group, in
 
 			  if (isClient) {
 		          if (connect(unicast_tcp.sock, (struct sockaddr*)&unicast_tcp.addr, sizeof(struct sockaddr)) < 0) {
-					  printf(" Unable to connect socket (%i) to address (%d) \n", unicast_tcp.sock, unicast_tcp.addr);
+					  char str[INET_ADDRSTRLEN];
+					  inet_ntop(unicast_tcp.addr.sin_family, &(unicast_tcp.addr.sin_addr), str, INET_ADDRSTRLEN);
+					  printf(" Unable to connect socket (%i) to address (%s) \n", unicast_tcp.sock, str);
 				  }
 			  } else {
 				  if (bind(unicast_tcp.sock, (struct sockaddr*)&unicast_tcp.addr, sizeof(struct sockaddr)) < 0) {
-					  printf(" Unable to bind socket (%i) to address (%d) \n", unicast_tcp.sock, unicast_tcp.addr);
+					  char str[INET_ADDRSTRLEN];
+					  inet_ntop(unicast_tcp.addr.sin_family, &(unicast_tcp.addr.sin_addr), str, INET_ADDRSTRLEN);
+					  printf(" Unable to bind socket (%i) to address (%s) \n", unicast_tcp.sock, str);
 				  } else if (listen(unicast_tcp.sock, 1) < 0) {
 					  printf(" Unable to put socket (%i) into listen mode\n", unicast_tcp.sock);
 				  }

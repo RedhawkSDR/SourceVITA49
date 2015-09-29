@@ -80,10 +80,12 @@ static unicast_t unicast_open_ (const char* iface, const char* group, int port, 
 			  unicast.addr.sin_family = AF_INET;
 			  unicast.addr.sin_addr.s_addr = inet_addr(group);//mreqn.imr_multiaddr.s_addr;
 			  unicast.addr.sin_port = htons(port);
-
 			  if (isClient) {
-				  if (bind(unicast.sock, (struct sockaddr*)&unicast.addr, sizeof(struct sockaddr)) < 0)
-					  printf(" Unable to bind socket (%i) to address (%d) \n", unicast.sock,unicast.addr);
+			      if (bind(unicast.sock, (struct sockaddr*)&unicast.addr, sizeof(struct sockaddr)) < 0){
+				      char str[INET_ADDRSTRLEN];
+				      inet_ntop(unicast.addr.sin_family, &(unicast.addr.sin_addr), str, INET_ADDRSTRLEN);
+				      printf(" Unable to bind socket (%i) to address (%s) \n", unicast.sock, str);
+                  }
 			  }
 
 			  free(devs.ifc_buf);
