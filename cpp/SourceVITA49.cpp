@@ -576,7 +576,7 @@ void SourceVITA49_i::advancedConfigurationChanged(const advanced_configuration_s
 		const advanced_configuration_struct* newVal) {
 	boost::mutex::scoped_lock lock(property_lock);
 
-	if (newVal->buffer_size < newVal->corba_transfersize) {
+	if (newVal->buffer_size < 0 || static_cast<unsigned int>(newVal->buffer_size) < newVal->corba_transfersize) {
 		LOG_ERROR(SourceVITA49_i, "Internal buffer size is less than the transfer size.  No data will ever be pushed, reverting to old values");
 		advanced_configuration.buffer_size = oldVal->buffer_size;
 		advanced_configuration.corba_transfersize = oldVal->corba_transfersize;
