@@ -40,6 +40,7 @@ typedef struct {
   struct sockaddr_in addr;
 } unicast_tcp_t;
 
+unicast_tcp_t unicast_tcp_accept (unicast_tcp_t server);
 unicast_tcp_t unicast_tcp_client (const char* iface, const char* group, int port);
 ssize_t unicast_tcp_receive (unicast_tcp_t client, void* buffer, size_t bytes, unsigned int to_in_msecs= 0);
 unicast_tcp_t unicast_tcp_server (const char* iface, const char* group, int port);

@@ -88,7 +88,7 @@ static unicast_tcp_t unicast_tcp_open_ (const char* iface, const char* group, in
 				  if (bind(unicast_tcp.sock, (struct sockaddr*)&unicast_tcp.addr, sizeof(struct sockaddr)) < 0) {
 					  printf(" Unable to bind socket (%i) to address (%d) \n", unicast_tcp.sock, unicast_tcp.addr);
 				  } else if (listen(unicast_tcp.sock, 1) < 0) {
-					  printf(" Unable to put socket (%i) into listen mode\n");
+					  printf(" Unable to put socket (%i) into listen mode\n", unicast_tcp.sock);
 				  }
 			  }
 
@@ -107,6 +107,20 @@ static unicast_tcp_t unicast_tcp_open_ (const char* iface, const char* group, in
   return unicast_tcp;
 }
 
+unicast_tcp_t unicast_tcp_accept (unicast_tcp_t server)
+{
+  unicast_tcp_t client;
+  socklen_t size;
+  int r;
+
+  if ((r = accept(server.sock, (sockaddr *)&client.addr, &size)) < 0) {
+    printf(" Unable to accept on socket (%i)", server.sock);
+  }
+
+  client.sock = r;
+
+  return client;
+}
 
 unicast_tcp_t unicast_tcp_client (const char* iface, const char* group, int port)
 {

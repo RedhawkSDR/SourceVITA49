@@ -45,7 +45,7 @@ static inline void verify_ (int condition, const char* message, const char* cond
 #define verify(CONDITION, MESSAGE) verify_(CONDITION, MESSAGE, #CONDITION, __FILE__, __LINE__)
 
 
-static unicast_t unicast_open_ (const char* iface, const char* group, int port)
+static unicast_t unicast_open_ (const char* iface, const char* group, int port, int isClient)
 {
   unsigned int ii;
 
@@ -76,11 +76,15 @@ static unicast_t unicast_open_ (const char* iface, const char* group, int port)
 			  verify(dev.ifr_flags & IFF_UP, "interface up");
 			  //verify(!(dev.ifr_flags & IFF_LOOPBACK), "not loopback");
 			  verify(ioctl(unicast.sock, SIOCGIFINDEX, &dev) == 0, "get index");
+
 			  unicast.addr.sin_family = AF_INET;
 			  unicast.addr.sin_addr.s_addr = inet_addr(group);//mreqn.imr_multiaddr.s_addr;
 			  unicast.addr.sin_port = htons(port);
-			  if (bind(unicast.sock, (struct sockaddr*)&unicast.addr, sizeof(struct sockaddr)) < 0)
-				  	 printf(" Unable to bind socket (%i) to address (%d) \n", unicast.sock,unicast.addr);
+
+			  if (isClient) {
+				  if (bind(unicast.sock, (struct sockaddr*)&unicast.addr, sizeof(struct sockaddr)) < 0)
+					  printf(" Unable to bind socket (%i) to address (%d) \n", unicast.sock,unicast.addr);
+			  }
 
 			  free(devs.ifc_buf);
 			  return unicast;
@@ -100,7 +104,7 @@ static unicast_t unicast_open_ (const char* iface, const char* group, int port)
 
 unicast_t unicast_client (const char* iface, const char* group, int port)
 {
-  unicast_t client = unicast_open_(iface, group, port);
+  unicast_t client = unicast_open_(iface, group, port, 1);
   if (client.sock != -1) {
     int size = 128*1024*1024;
     verify(setsockopt(client.sock, SOL_SOCKET, SO_RCVBUF, &size, sizeof(int)) == 0, "set recvbuf size");
@@ -121,7 +125,7 @@ ssize_t unicast_receive (unicast_t client, void* buffer, size_t bytes, unsigned 
 
 unicast_t unicast_server (const char* iface, const char* group, int port)
 {
-  unicast_t server = unicast_open_(iface, group, port);
+  unicast_t server = unicast_open_(iface, group, port, 0);
   if (server.sock != -1) {
     uint8_t ttl = 32;
     verify(setsockopt(server.sock, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) == 0, "set ttl");
