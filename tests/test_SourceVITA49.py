@@ -27,27 +27,78 @@ import os
 from omniORB import any
 from ossie.utils import sb
 
+# Full functionality is tested via end-to-end testing using SinkVITA49 and SourceVITA49 in the fulltest_VITA49.py file
 class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
     """Test for all resource implementations in rh.SourceVITA49"""
 
-    def testScaBasicBehavior(self):
-        # Full functionality is tested via end-to-end testing using SinkVITA49 and SourceVITA49 in the test_VITA49.py file
+
+    def setUp(self):
+        """Set up the unit test - this is run before every method that starts with test
+        """
+        ossie.utils.testing.ScaComponentTestCase.setUp(self)
+        
+        self.componentSetup()
+        
+        
+    def tearDown(self):
+        """Finish the unit test - this is run after every method that starts with test
+        """
+        self.comp.stop()
+        
+        #######################################################################
+        # Simulate regular component shutdown
+        self.comp.releaseObject()
+           
+        ossie.utils.testing.ScaComponentTestCase.tearDown(self)
+
+
+    def componentSetup(self):
+        """Standard start-up for testing the component
+        """
         print ' * Note:'
         print ' * During this unit test, SourceVITA49 will warn about using a built-in table'
         print ' * for leap seconds if no leap seconds file is found at the indicated location.'
-        
         #######################################################################
-        # Launch the resource with the default execparams
+        # Launch the component with the default execparams
         execparams = self.getPropertySet(kinds=("execparam",), modes=("readwrite", "writeonly"), includeNil=False)
         execparams = dict([(x.id, any.from_any(x.value)) for x in execparams])
         execparams["DEBUG_LEVEL"] = DEBUG_LEVEL
-        self.launch(execparams)
+        self.launch(execparams, initialize=True)
+        
+        #######################################################################
+        # Simulate regular component startup
+        configureProps = self.getPropertySet(kinds=("configure",), modes=("readwrite", "writeonly"), includeNil=False)
+        self.comp.configure(configureProps)
+        
+        # SourceVITA49 needs to be configured prior to being started, so it must be started in each unit test.
+        #self.comp.start()
+        
+        
+    def testStartStopRelease(self):
+        """testStartStopRelease - Only start, stop, then release the component.
+        """
+        # All but start() is accomplished by the setUp and tearDown functions called for each test.
+    
+        #######################################################################
+        # Make sure start and stop can be called without throwing exceptions
+        print ' * Note:'
+        print ' * During this unit test, SourceVITA49 will be unable to determine attachment'
+        print ' * settings using the default configuration, and will fail to launch RX thread.'
+        self.comp.start()
+        #self.comp.stop()
 
+        #######################################################################
+        # Simulate regular resource shutdown
+        #self.comp.releaseObject()
+
+
+    def testScaBasicBehavior(self):
+        """testScaBasicBehavior
+        """
         #######################################################################
         # Verify the basic state of the resource
         self.assertNotEqual(self.comp, None)
         self.assertEqual(self.comp.ref._non_existent(), False)
-
         self.assertEqual(self.comp.ref._is_a("IDL:CF/Resource:1.0"), True)
 
         #######################################################################
@@ -75,15 +126,11 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
             self.assertNotEqual(port_obj, None)
             self.assertEqual(port_obj._non_existent(), False)
             self.assertEqual(port_obj._is_a(port.get_repid()),  True)
-
-        #######################################################################
-        # Make sure start and stop can be called without throwing exceptions
-        print ' * Note:'
-        print ' * During this unit test, SourceVITA49 will be unable to determine attachment'
-        print ' * settings using the default configuration, and will fail to launch RX thread.'
-        self.comp.start()
-        self.comp.stop()
         
+
+    def testPortConnections(self):
+        """testPortConnections
+        """
         #######################################################################
         # Connect to the ports
         sink = sb.DataSink();
@@ -93,7 +140,19 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         self.comp.connect(sink,providesPortName='ushortIn')
         self.comp.connect(sink,providesPortName='floatIn')
         self.comp.connect(sink,providesPortName='doubleIn')
+        
+        #######################################################################
+        # Make sure start and stop can be called without throwing exceptions
+        print ' * Note:'
+        print ' * During this unit test, SourceVITA49 will be unable to determine attachment'
+        print ' * settings using the default configuration, and will fail to launch RX thread.'
 
+        self.comp.start()
+
+
+    def testPropertyConfiguration(self):
+        """testPropertyConfiguration
+        """
         #######################################################################
         # Attempt to set all the properties
         self.comp.interface = "eth0" 
@@ -118,16 +177,11 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         #self.comp.api() 
         
         #######################################################################
-        # Start and stop the component w/ new property configuration
+        # Make sure start and stop can be called without throwing exceptions
         print ' * Note:'
         print ' * During this unit test, SourceVITA49 will fail to connect to unicast'
         print ' * udp socket and will fail to launch the RX thread.'
         self.comp.start()
-        self.comp.stop()
-
-        #######################################################################
-        # Simulate regular resource shutdown
-        self.comp.releaseObject()
 
 if __name__ == "__main__":
     ossie.utils.testing.main("../SourceVITA49.spd.xml") # By default tests all implementations
