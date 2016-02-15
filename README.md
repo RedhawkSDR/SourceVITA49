@@ -6,7 +6,7 @@ Contains the source and build script for the REDHAWK Basic Components rh.SourceV
  
 ## Installation Instructions
 This asset requires the rh.VITA49 shared library. This must be installed in order to build and run this asset.
-To build from source, run the `build.sh` script found at the top level directory. To install to $SDRROOT run, `build.sh install`
+To build from source, run the `build.sh` script found at the top level directory. To install to $SDRROOT, run `build.sh install`
  
 ## Copyrights
 
