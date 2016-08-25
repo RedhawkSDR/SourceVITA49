@@ -119,7 +119,7 @@ void SourceVITA49_i::initialize_values() {
     _readIndex = 0;
     packetSize = this->advanced_configuration.vita49_packet_size;
     _offset = 0;
-    _dataRef = BYTE_ORDER;
+    _dataRef = BIG_ENDIAN;
     T.twsec = 0;
     T.tfsec = 0;
     lastTimeStamp.twsec = 0;
