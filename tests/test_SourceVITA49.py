@@ -69,6 +69,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         self.comp.releaseObject()
            
         ossie.utils.testing.ScaComponentTestCase.tearDown(self)
+        time.sleep(1)
 
 
     def componentSetup(self):
@@ -327,9 +328,18 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
     def testAttachDetach(self):
         
         self.comp.start()
-        self.pushSRI()
         attachId = self.callAttach(True,0)
+        self.pushSRI()
         self.input_vita49_port.detach(attachId)
+
+        attachId = self.callAttach(True,0)
+        self.pushSRI()
+        self.input_vita49_port.detach(attachId)
+        
+        attachId = self.callAttach(True,0)
+        self.pushSRI()
+        self.input_vita49_port.detach(attachId)
+
 
     def testSRI(self):
         
@@ -345,7 +355,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         self.assertEqual(sri.xdelta,.0001)
         self.assertEqual(sri.mode,1)
         
-        expectedkws = [CF.DataType("dataRef", ossie.properties.to_tc_value(BIG_ENDIAN, 'long')),
+        expectedkws = [CF.DataType("dataRef", ossie.properties.to_tc_value(BIG_ENDIAN, 'string')),
                        CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))]
         
         for expectedkw in expectedkws:
@@ -371,7 +381,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         time.sleep(.5)
         sri = self.dataSink.sri()
  
-        expectedkws = [CF.DataType("dataRef", ossie.properties.to_tc_value(BIG_ENDIAN, 'long')),
+        expectedkws = [CF.DataType("dataRef", ossie.properties.to_tc_value(BIG_ENDIAN, 'string')),
                        CF.DataType("COL_RF", ossie.properties.to_tc_value(200000000, 'double'))]
         
         for expectedkw in expectedkws:
