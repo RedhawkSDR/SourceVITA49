@@ -1068,6 +1068,7 @@ void SourceVITA49_i::setStartOfYear() {
 // Threading Functions //
 /////////////////////////
 void SourceVITA49_i::destroy_rx_thread() {
+    boost::mutex::scoped_lock runLock(teardown_lock);
     if (_receiveThread != NULL) {
         curr_attach.attach = false;
         runThread = false;
