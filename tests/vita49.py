@@ -153,7 +153,7 @@ class VITA49():
         lower = shifted & 0xFFFFFFFF
         return upper, lower
     
-    def generateVRLFrame(self, data=None, force_send_context=True, packet_max_elements=None):
+    def generateVRLFrame(self, data=None, force_send_context=True, packet_max_elements=None, littleEndianContent=False):
         VRL_FAW = 0x56524C50
         NO_CRC = 0x56454E44
         
@@ -162,7 +162,7 @@ class VITA49():
         if force_send_context:
             content += self.generateContextPacket()
         if data != None:
-            content += self.generateDataPacket(data)
+            content += self.generateDataPacket(data, littleEndianContent)
         
         #Add header
         frame = struct.pack('!I', VRL_FAW)
@@ -230,7 +230,7 @@ class VITA49():
         self.setPacketLength(pkt, len(pkt))
         return struct.pack('!%dI'%len(pkt), *pkt)
     
-    def generateDataPacket(self, data):
+    def generateDataPacket(self, data, littleEndianContent=False):
         pkt = self.generateCommonHeader()
         
         
@@ -256,8 +256,12 @@ class VITA49():
             raise RuntimeError("Must provide data that packs to a 32 bit boundary" )
         
         #Byte swap each element and append in
+        byteOrderFlag = '!' # Network Byte Order, also Big Endian
+        if littleEndianContent:
+            byteOrderFlag = '<' # Little Endian
         for d in flat_data:
-            content += struct.pack('!%s'%pack_type, d)
+            #content += struct.pack('!%s'%pack_type, d)
+            content += struct.pack(byteOrderFlag+'%s'%pack_type, d)
         
         self.setPacketLength(pkt, len(pkt) + len(content)/4)
         return struct.pack('!%dI'%len(pkt), *pkt)+content

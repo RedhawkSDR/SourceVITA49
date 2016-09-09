@@ -19,7 +19,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
-DEBUG_LEVEL = 5
+DEBUG_LEVEL = 3
 LITTLE_ENDIAN=1234
 BIG_ENDIAN=4321
 
@@ -96,9 +96,16 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
     def connectOutputData(self,portName= "dataShort_out"):
         self.dataSink = sb.DataSink()       
         self.comp.connect(self.dataSink,usesPortName=portName)
+
+    def pushSriBigEndian(self,xdelta=1,streamID='TestStreamID',mode=0,kw=[]):
+        kw.append(CF.DataType("dataRef", ossie.properties.to_tc_value(BIG_ENDIAN, 'string')))
+        self.pushSRI(xdelta, streamID, mode, kw)
+     
+    def pushSriLittleEndian(self,xdelta=1,streamID='TestStreamID',mode=0,kw=[]):
+        kw.append(CF.DataType("dataRef", ossie.properties.to_tc_value(LITTLE_ENDIAN, 'string')))
+        self.pushSRI(xdelta, streamID, mode, kw)
      
     def pushSRI(self,xdelta=1,streamID='TestStreamID',mode=0,kw=[]):
-        kw.append(CF.DataType("dataRef", ossie.properties.to_tc_value(BIG_ENDIAN, 'string')))
         sri = BULKIO.StreamSRI(hversion=1, xstart=0.0, xdelta=xdelta, xunits=1, subsize=0, ystart=0.0, ydelta=0.0, yunits=0, mode=mode, streamID=streamID, blocking=False, keywords=kw)
         self.input_vita49_port.pushSRI(sri,timestamp.now())          
   
@@ -182,28 +189,28 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         
         return v49
 
-    def sendDataandCheck(self,vita49Frame):
+    def sendDataandCheck(self,vita49Frame, littleEndianPayload=False):
         
         Indata=[x %256 for x in range(self.vector_size)]
 
         # Send Data Packet
-        frame = vita49Frame.generateVRLFrame(Indata, force_send_context=False)       
+        frame = vita49Frame.generateVRLFrame(Indata, force_send_context=False, littleEndianContent=littleEndianPayload)       
         self.writeSocketData(frame)
         time.sleep(.1)
         
         # Send Context Packet
-        frame = vita49Frame.generateVRLFrame(None, force_send_context=True)       
+        frame = vita49Frame.generateVRLFrame(None, force_send_context=True, littleEndianContent=littleEndianPayload)
         self.writeSocketData(frame)
         time.sleep(.1)
 
         # Send Data Packets
-        frame = vita49Frame.generateVRLFrame(Indata, force_send_context=False)       
+        frame = vita49Frame.generateVRLFrame(Indata, force_send_context=False, littleEndianContent=littleEndianPayload)
         self.writeSocketData(frame)
 
-        frame = vita49Frame.generateVRLFrame(Indata, force_send_context=False)       
+        frame = vita49Frame.generateVRLFrame(Indata, force_send_context=False, littleEndianContent=littleEndianPayload)
         self.writeSocketData(frame)
 
-        frame = vita49Frame.generateVRLFrame(Indata, force_send_context=False)       
+        frame = vita49Frame.generateVRLFrame(Indata, force_send_context=False, littleEndianContent=littleEndianPayload)
         self.writeSocketData(frame)
 
          
@@ -329,15 +336,15 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         
         self.comp.start()
         attachId = self.callAttach(True,0)
-        self.pushSRI()
+        self.pushSriBigEndian()
         self.input_vita49_port.detach(attachId)
 
         attachId = self.callAttach(True,0)
-        self.pushSRI()
+        self.pushSriBigEndian()
         self.input_vita49_port.detach(attachId)
         
         attachId = self.callAttach(True,0)
-        self.pushSRI()
+        self.pushSriBigEndian()
         self.input_vita49_port.detach(attachId)
 
 
@@ -346,7 +353,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         self.connectOutputData()
 
         
-        self.pushSRI(xdelta=.0001,mode=1,streamID="testSRIStream", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+        self.pushSriBigEndian(xdelta=.0001,mode=1,streamID="testSRIStream", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
         attachId = self.callAttach(True,0)
         self.comp.start()
 
@@ -369,7 +376,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         
         
         #Change SRI and see if changed on output
-        self.pushSRI(xdelta=.01,mode=0,streamID="testSRIStream", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+        self.pushSriBigEndian(xdelta=.01,mode=0,streamID="testSRIStream", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
         time.sleep(.5)
         sri = self.dataSink.sri()
         self.assertEqual(sri.streamID,"testSRIStream")
@@ -377,7 +384,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         self.assertEqual(sri.mode,0)        
  
         # Update just a keyword
-        self.pushSRI(xdelta=.01,mode=0,streamID="testSRIStream", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(200000000, 'double'))])
+        self.pushSriBigEndian(xdelta=.01,mode=0,streamID="testSRIStream", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(200000000, 'double'))])
         time.sleep(.5)
         sri = self.dataSink.sri()
  
@@ -396,8 +403,107 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         
         self.input_vita49_port.detach(attachId)        
 
-    def testSendDataSI(self):
+    def testSendDataBigEndianSI(self):
         
+        self.connectOutputData(portName= "dataShort_out")
+
+        attachId = self.callAttach(True,0)
+        self.pushSriBigEndian(xdelta=1/10000,mode=1,streamID="testSendDataSI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+
+        self.comp.start()
+        time.sleep(1)
+        
+        v49 = self.createVITA49Data(streamID="testSendDataSI",format=VITA49.DATA_FORMATS.SI,vector_size=self.vector_size)
+        self.sendDataandCheck(v49)
+  
+
+        print "****Send Detach "  
+        self.input_vita49_port.detach(attachId)
+
+    def testSendDataBigEndianCI(self):
+                
+        self.connectOutputData(portName= "dataShort_out")
+        attachId = self.callAttach(True,1)
+        self.pushSriBigEndian(xdelta=1/10000,mode=1,streamID="testSendDataCI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+
+        self.comp.start()
+        time.sleep(1)
+        
+        v49 = self.createVITA49Data(streamID="testSendDataCI",format=VITA49.DATA_FORMATS.CI,vector_size=self.vector_size/2)
+        self.sendDataandCheck(v49)
+  
+
+        print "****Send Detach "  
+        self.input_vita49_port.detach(attachId)    
+        
+    def testSendDataBigEndianSF(self):
+                
+        self.connectOutputData(portName= "dataFloat_out")
+
+        attachId = self.callAttach(True,2)
+        self.pushSriBigEndian(xdelta=1/10000,mode=1,streamID="testSendDataSF", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+
+        self.comp.start()
+        time.sleep(1)
+        
+        v49 = self.createVITA49Data(streamID="testSendDataSF",format=VITA49.DATA_FORMATS.SF,vector_size=self.vector_size)
+        self.sendDataandCheck(v49)
+  
+
+        print "****Send Detach "  
+        self.input_vita49_port.detach(attachId)    
+        
+    def testSendDataLittleEndianSI(self):
+        
+        self.connectOutputData(portName= "dataShort_out")
+
+        attachId = self.callAttach(True,0)
+        self.pushSriLittleEndian(xdelta=1/10000,mode=1,streamID="testSendDataSI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+
+        self.comp.start()
+        time.sleep(1)
+        
+        v49 = self.createVITA49Data(streamID="testSendDataSI",format=VITA49.DATA_FORMATS.SI,vector_size=self.vector_size)
+        self.sendDataandCheck(v49, littleEndianPayload=True)
+  
+
+        print "****Send Detach "  
+        self.input_vita49_port.detach(attachId)
+
+    def testSendDataLittleEndianCI(self):
+                
+        self.connectOutputData(portName= "dataShort_out")
+        attachId = self.callAttach(True,1)
+        self.pushSriLittleEndian(xdelta=1/10000,mode=1,streamID="testSendDataCI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+
+        self.comp.start()
+        time.sleep(1)
+        
+        v49 = self.createVITA49Data(streamID="testSendDataCI",format=VITA49.DATA_FORMATS.CI,vector_size=self.vector_size/2)
+        self.sendDataandCheck(v49, littleEndianPayload=True)
+  
+
+        print "****Send Detach "  
+        self.input_vita49_port.detach(attachId)    
+        
+    def testSendDataLittleEndianSF(self):
+                
+        self.connectOutputData(portName= "dataFloat_out")
+
+        attachId = self.callAttach(True,2)
+        self.pushSriLittleEndian(xdelta=1/10000,mode=1,streamID="testSendDataSF", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+
+        self.comp.start()
+        time.sleep(1)
+        
+        v49 = self.createVITA49Data(streamID="testSendDataSF",format=VITA49.DATA_FORMATS.SF,vector_size=self.vector_size)
+        self.sendDataandCheck(v49, littleEndianPayload=True)
+  
+
+        print "****Send Detach "  
+        self.input_vita49_port.detach(attachId)    
+        
+    def testSendDataDefaultEndianSI(self):
         
         self.connectOutputData(portName= "dataShort_out")
 
@@ -414,7 +520,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         print "****Send Detach "  
         self.input_vita49_port.detach(attachId)
 
-    def testSendDataCI(self):
+    def testSendDataDefaultEndianCI(self):
                 
         self.connectOutputData(portName= "dataShort_out")
         attachId = self.callAttach(True,1)
@@ -430,7 +536,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         print "****Send Detach "  
         self.input_vita49_port.detach(attachId)    
         
-    def testSendDataSF(self):
+    def testSendDataDefaultEndianSF(self):
                 
         self.connectOutputData(portName= "dataFloat_out")
 
