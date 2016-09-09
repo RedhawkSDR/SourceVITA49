@@ -13,3 +13,5 @@ cpp/*.o
 cpp/*.m4
 cpp/config.*
 cpp/*.cache
+*.pyc
+*.swp
