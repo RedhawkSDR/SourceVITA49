@@ -122,7 +122,7 @@ Possible settings only compatiable with VITA49 Spectrum Survey Profile</descript
 
 Rule 6.1.6.2-1: Item Packing Fields shall be arranged in the 32-bit wide payload region either according to link-efficient rules or according to processing-efficient rules. All payloads in an IF Data Packet Stream shall be packed identically.
 
-Rule 6.1.6.2-2: When link-efficient packing is implemented all bits in each 32-bit word shall be used for the packing of Item Packing Fields. The only exception is the last 32-bit payload word, which may be only partially filled. Each consecutive Item Packing Field shall reside immediately to the right of the previous one. When the remaining bits in a 32-bit word are fewer than the size of an Item Packing Field, the left-most bits of the next Item Packing Field shall be loaded into the available bit positions. The remaining portion of such an Item Packing Field shall occupy the left-most positions of the next 32-bit word. In this way, Item Packing Fields shall “wrap” from one
+Rule 6.1.6.2-2: When link-efficient packing is implemented all bits in each 32-bit word shall be used for the packing of Item Packing Fields. The only exception is the last 32-bit payload word, which may be only partially filled. Each consecutive Item Packing Field shall reside immediately to the right of the previous one. When the remaining bits in a 32-bit word are fewer than the size of an Item Packing Field, the left-most bits of the next Item Packing Field shall be loaded into the available bit positions. The remaining portion of such an Item Packing Field shall occupy the left-most positions of the next 32-bit word. In this way, Item Packing Fields shall "wrap" from one
 32-bit word to the next.
 </description>
       <value>true</value>
@@ -167,7 +167,7 @@ Rule 6.1.6.2-2: When link-efficient packing is implemented all bits in each 32-b
       <action type="external"/>
     </simple>
     <simple id="VITA49Processing_override::repeating" mode="readwrite" name="repeating" type="ulong">
-      <description>Rule 6.1.6.3-6: When Sample-Component Repeating is used with complex Cartesian Data Samples, the number of “I” Data Items specified by the Repeat Count parameter shall be packed into sequential Item Packing Fields with earlier Data Items going into lower-numbered Item Packing Fields. This shall be followed by the corresponding “Q” Data Items similarly arranged. The Repeat Count shall range from one to 65,536 with a value of one indicating that Sample-Component Repeating is not in use.
+      <description>Rule 6.1.6.3-6: When Sample-Component Repeating is used with complex Cartesian Data Samples, the number of "I" Data Items specified by the Repeat Count parameter shall be packed into sequential Item Packing Fields with earlier Data Items going into lower-numbered Item Packing Fields. This shall be followed by the corresponding "Q" Data Items similarly arranged. The Repeat Count shall range from one to 65,536 with a value of one indicating that Sample-Component Repeating is not in use.
 </description>
       <value>1</value>
       <units>number of times the packet may repeat</units>
