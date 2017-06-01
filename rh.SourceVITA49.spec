@@ -30,7 +30,7 @@ Prefix:         %{_prefix}
 %define _infodir       %{_prefix}/info
 
 Name:           rh.SourceVITA49
-Version:        3.0.3
+Version:        3.1.0
 Release:        1%{?dist}
 Summary:        Component %{name}
 
@@ -43,8 +43,8 @@ BuildRequires:  redhawk-devel >= 2.0
 Requires:       redhawk >= 2.0
 
 # Shared library requirements
-BuildRequires:  rh.VITA49-devel
-Requires:       rh.VITA49
+BuildRequires:  rh.VITA49-devel >= 4.0
+Requires:       rh.VITA49 >= 4.0
 
 # Interface requirements
 BuildRequires:  bulkioInterfaces >= 2.0

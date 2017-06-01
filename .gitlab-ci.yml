@@ -14,7 +14,7 @@ before_script:
         rpm_release="0.$CI_PIPELINE_ID.rh${safe_version}";
       else
         redhawk_version=${release_version}
-        vita49_version=3.0.1
+        vita49_version=4.0.0
         rpm_release="`rpm --query --queryformat "%{release}\n" --specfile ${namespace}$CI_PROJECT_NAME.spec | awk -F"." "{print $1}"`.rh${safe_version}";
       fi
     - redhawk_repo=$yum_repo_url/redhawk-core-framework/$redhawk_version/$dist/$arch

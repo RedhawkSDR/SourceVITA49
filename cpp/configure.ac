@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
-AC_INIT(rh.SourceVITA49, 3.0.3)
+AC_INIT(rh.SourceVITA49, 3.1.0)
 AM_INIT_AUTOMAKE([nostdinc foreign])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -35,7 +35,7 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 PKG_CHECK_MODULES([PROJECTDEPS], [ossie >= 2.0 omniORB4 >= 4.1.0])
 PKG_CHECK_MODULES([INTERFACEDEPS], [bulkio >= 2.0])
 PKG_CHECK_MODULES([LIBUUID], [uuid])
-RH_SOFTPKG_CXX([/deps/rh/VITA49/VITA49.spd.xml],[cpp],[3.0])
+RH_SOFTPKG_CXX([/deps/rh/VITA49/VITA49.spd.xml],[cpp],[4.0])
 OSSIE_ENABLE_LOG4CXX
 AX_BOOST_BASE([1.41])
 AX_BOOST_SYSTEM
