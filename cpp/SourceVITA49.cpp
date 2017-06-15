@@ -951,9 +951,6 @@ void SourceVITA49_i::mergeRecSRI(const BULKIO::StreamSRI &recSRI, bool force_ref
             }
 
             if (string(recSRI.keywords[i].id) == "dataRef" || string(recSRI.keywords[i].id) == "DATA_REF_STR") {
-                CORBA::Long value;
-                recSRI.keywords[i].value >>= value;
-                std::string value2;
                 _dataRef = (uint32_t) atol(ossie::any_to_string(recSRI.keywords[i].value).c_str());
             }
         }
@@ -1721,10 +1718,6 @@ void SourceVITA49_i::process_context(std::vector<char> *packet) {
     if (!isNull(contextPacket_g->getEphemerisECEF())) {
         LOG_DEBUG(SourceVITA49_i, " The Ephemeris ECEF info exists");
         Ephemeris Temp = contextPacket_g->getEphemerisECEF();
-
-        if (!isNull(Temp.getAdjunct())) {
-            EphemerisAdjunct Adjunct = Temp.getAdjunct();
-        }
 
         if (processingEphemeris != Temp) {
 
