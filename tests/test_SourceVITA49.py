@@ -97,15 +97,15 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         self.dataSink = sb.DataSink()       
         self.comp.connect(self.dataSink,usesPortName=portName)
 
-    def pushSriBigEndian(self,xdelta=1,streamID='TestStreamID',mode=0,kw=[]):
+    def pushSriBigEndian(self,xdelta=1.0,streamID='TestStreamID',mode=0,kw=[]):
         kw.append(CF.DataType("dataRef", ossie.properties.to_tc_value(BIG_ENDIAN, 'string')))
         self.pushSRI(xdelta, streamID, mode, kw)
      
-    def pushSriLittleEndian(self,xdelta=1,streamID='TestStreamID',mode=0,kw=[]):
+    def pushSriLittleEndian(self,xdelta=1.0,streamID='TestStreamID',mode=0,kw=[]):
         kw.append(CF.DataType("dataRef", ossie.properties.to_tc_value(LITTLE_ENDIAN, 'string')))
         self.pushSRI(xdelta, streamID, mode, kw)
      
-    def pushSRI(self,xdelta=1,streamID='TestStreamID',mode=0,kw=[]):
+    def pushSRI(self,xdelta=1.0,streamID='TestStreamID',mode=0,kw=[]):
         sri = BULKIO.StreamSRI(hversion=1, xstart=0.0, xdelta=xdelta, xunits=1, subsize=0, ystart=0.0, ydelta=0.0, yunits=0, mode=mode, streamID=streamID, blocking=False, keywords=kw)
         self.input_vita49_port.pushSRI(sri,timestamp.now())          
   
@@ -408,7 +408,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         self.connectOutputData(portName= "dataShort_out")
 
         attachId = self.callAttach(True,0)
-        self.pushSriBigEndian(xdelta=1/10000,mode=1,streamID="testSendDataSI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+        self.pushSriBigEndian(xdelta=1.0/10000,mode=1,streamID="testSendDataSI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
@@ -424,7 +424,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
                 
         self.connectOutputData(portName= "dataShort_out")
         attachId = self.callAttach(True,1)
-        self.pushSriBigEndian(xdelta=1/10000,mode=1,streamID="testSendDataCI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+        self.pushSriBigEndian(xdelta=1.0/10000,mode=1,streamID="testSendDataCI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
@@ -441,7 +441,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         self.connectOutputData(portName= "dataFloat_out")
 
         attachId = self.callAttach(True,2)
-        self.pushSriBigEndian(xdelta=1/10000,mode=1,streamID="testSendDataSF", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+        self.pushSriBigEndian(xdelta=1.0/10000,mode=1,streamID="testSendDataSF", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
@@ -458,7 +458,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         self.connectOutputData(portName= "dataShort_out")
 
         attachId = self.callAttach(True,0)
-        self.pushSriLittleEndian(xdelta=1/10000,mode=1,streamID="testSendDataSI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+        self.pushSriLittleEndian(xdelta=1.0/10000,mode=1,streamID="testSendDataSI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
@@ -474,7 +474,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
                 
         self.connectOutputData(portName= "dataShort_out")
         attachId = self.callAttach(True,1)
-        self.pushSriLittleEndian(xdelta=1/10000,mode=1,streamID="testSendDataCI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+        self.pushSriLittleEndian(xdelta=1.0/10000,mode=1,streamID="testSendDataCI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
@@ -491,7 +491,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         self.connectOutputData(portName= "dataFloat_out")
 
         attachId = self.callAttach(True,2)
-        self.pushSriLittleEndian(xdelta=1/10000,mode=1,streamID="testSendDataSF", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+        self.pushSriLittleEndian(xdelta=1.0/10000,mode=1,streamID="testSendDataSF", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
@@ -508,7 +508,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         self.connectOutputData(portName= "dataShort_out")
 
         attachId = self.callAttach(True,0)
-        self.pushSRI(xdelta=1/10000,mode=1,streamID="testSendDataSI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+        self.pushSRI(xdelta=1.0/10000,mode=1,streamID="testSendDataSI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
@@ -524,7 +524,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
                 
         self.connectOutputData(portName= "dataShort_out")
         attachId = self.callAttach(True,1)
-        self.pushSRI(xdelta=1/10000,mode=1,streamID="testSendDataCI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+        self.pushSRI(xdelta=1.0/10000,mode=1,streamID="testSendDataCI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
@@ -541,7 +541,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         self.connectOutputData(portName= "dataFloat_out")
 
         attachId = self.callAttach(True,2)
-        self.pushSRI(xdelta=1/10000,mode=1,streamID="testSendDataSF", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
+        self.pushSRI(xdelta=1.0/10000,mode=1,streamID="testSendDataSF", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
