@@ -284,7 +284,7 @@ private:
     //////////
     // Data //
     //////////
-    char* array;
+//    char* array;
     bounded_buffer_deque_based< std::vector<char> *> Bank2;
     bool createMem;
     unsigned char *data;

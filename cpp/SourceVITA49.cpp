@@ -65,8 +65,8 @@ SourceVITA49_i::~SourceVITA49_i() {
 
     if (data != NULL)
         free(data);
-    if (array != NULL)
-        free(array);
+//    if (array != NULL)
+//        free(array);
 }
 
 void SourceVITA49_i::__constructor__() {
@@ -147,7 +147,7 @@ void SourceVITA49_i::initialize_values() {
 
     droppedPacket = false;
     init = true;
-    array = NULL;
+//    array = NULL;
     _receiveThread = NULL;
     streamID.clear();
 
@@ -170,9 +170,9 @@ void SourceVITA49_i::memoryManagement(int maxPacketLength) {
         free(data);
     data = (unsigned char*) malloc(CORBA_MAX_XFER_BYTES);
 
-    if (array != NULL)
-        free(array);
-    array = (char*) malloc(CORBA_MAX_XFER_BYTES);
+//    if (array != NULL)
+//        free(array);
+//    array = (char*) malloc(CORBA_MAX_XFER_BYTES);
 
     Bank2.clear();
     workQueue2.clear();
@@ -2077,7 +2077,8 @@ bool SourceVITA49_i::process_data_packet(std::vector<char> *packet) {
         int length = 0;
 
         if (_dataRef != BYTE_ORDER) {
-            standardDPacket->swapPayloadBytes(processingPayloadFormat, &array[0]);
+//            standardDPacket->swapPayloadBytes(processingPayloadFormat, &array[0]);
+            standardDPacket->swapPayloadBytes(processingPayloadFormat);
         }
 
         needed = transferSize - _writeIndex;
