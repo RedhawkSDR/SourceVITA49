@@ -1,8 +1,8 @@
 variables:
   test_suite: test_$CI_PROJECT_NAME.py
+  rh_20_release: '2.0.7'
+  rh_21_release: '2.1.2'
   namespace: rh.
-  rh_20_release: '2.0.6'
-  rh_21_release: '2.1.1'
 
 before_script:
     # Use RPM release from specfile if this is a tag
