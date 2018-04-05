@@ -44,10 +44,11 @@ before_script:
     expire_in: 2 days
   #Skip on tag of following format
   except:
+    - master
     - /^(\d+\.)?(\d+)?(\.\d+)$/
 
 .test: &test
-  image: ${docker_registry}redhawk/buildenv:$dist-$arch
+  image: ${docker_registry}redhawk/buildenv:${short_version}-$dist-$arch
   stage: test
   dependencies: []
   script:
@@ -78,6 +79,7 @@ before_script:
     expire_in: 2 days
   #Skip on tag of following format
   except:
+    - master
     - /^(\d+\.)?(\d+)?(\.\d+)$/
 
 package:el6:rh2.0:
@@ -200,4 +202,5 @@ deploy:
       fi
   #Skip on tag of following format
   except:
+    - master
     - /^(\d+\.)?(\d+)?(\.\d+)$/
