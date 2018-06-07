@@ -1110,6 +1110,7 @@ bool SourceVITA49_i::launch_rx_thread() {
 
     if (attachedIP > lowMulti && attachedIP < highMulti && !curr_attach.ip_address.empty()) {
         LOG_DEBUG(SourceVITA49_i, "Enabling multicast_client on " << attachedInterface << " " << attachedIPstr << " " << curr_attach.port);
+        isMulticast = true;
         multi_client = multicast_client(attachedInterface, attachedIPstr, curr_attach.port);
 
         if (multi_client.sock < 0) {
