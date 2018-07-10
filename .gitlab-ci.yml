@@ -11,7 +11,7 @@ before_script:
     - safe_ref=$(echo ${CI_COMMIT_REF_NAME} | tr -d /| tr '[:upper:]' '[:lower:]')
     - if [ -z "$CI_COMMIT_TAG" ]; then
         redhawk_version=${latest_version}
-        vita49_version=$CI_COMMIT_REF_NAME
+        vita49_version=$CI_COMMIT_REF_SLUG
         rpm_release="0.$CI_PIPELINE_ID.rh${safe_version}";
       else
         redhawk_version=${release_version}
