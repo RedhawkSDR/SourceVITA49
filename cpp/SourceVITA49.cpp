@@ -624,7 +624,9 @@ void SourceVITA49_i::attachmentOverrideChanged(const attachment_override_struct*
         attach_override_settings.use_udp_protocol = attachment_override.use_udp_protocol;
 
         streamID = attach_override_settings.attach_id; //"manual_override";
+        boost::mutex::scoped_lock sri_lock(sriLock);
         currSRI.streamID = streamID.c_str();
+        sri_lock.unlock();
 
         destroy_rx_thread();
 
@@ -1009,6 +1011,8 @@ double SourceVITA49_i::timeDiff() {
  *
  ******************************************************************************************/
 void SourceVITA49_i::setDefaultSRI() {
+    boost::mutex::scoped_lock lock(sriLock);
+
     currSRI.hversion = 0;
     /* time between samples (inverse of sample rate) */
     currSRI.xdelta = (double) 0;
@@ -1110,6 +1114,11 @@ bool SourceVITA49_i::launch_rx_thread() {
 
     if (attachedIP > lowMulti && attachedIP < highMulti && !curr_attach.ip_address.empty()) {
         LOG_DEBUG(SourceVITA49_i, "Enabling multicast_client on " << attachedInterface << " " << attachedIPstr << " " << curr_attach.port);
+
+        if(multicast_udp_open) {
+            multicast_close(multi_client);
+        }
+
         multi_client = multicast_client(attachedInterface, attachedIPstr, curr_attach.port);
 
         if (multi_client.sock < 0) {
@@ -1120,6 +1129,11 @@ bool SourceVITA49_i::launch_rx_thread() {
         multicast_udp_open = true;
     } else if (!curr_attach.use_udp_protocol) {
         LOG_DEBUG(SourceVITA49_i, "Enabling unicast TCP client on " << attachedInterface << " " << attachedIPstr << " " << curr_attach.port);
+
+        if(unicast_tcp_open) {
+            unicast_tcp_close(tcp_client);
+        }
+
         tcp_client = unicast_tcp_client(attachedInterface, attachedIPstr, curr_attach.port);
 
         if (tcp_client.sock < 0) {
@@ -1130,6 +1144,11 @@ bool SourceVITA49_i::launch_rx_thread() {
         unicast_tcp_open = true;
     } else {
         LOG_DEBUG(SourceVITA49_i, "Enabling unicast UDP client on " << attachedInterface << " " << attachedIPstr << " " << curr_attach.port);
+
+        if(unicast_udp_open) {
+            unicast_close(uni_client);
+        }
+
         uni_client = unicast_client(attachedInterface, attachedIPstr, curr_attach.port);
 
         if (uni_client.sock < 0) {
@@ -1208,6 +1227,7 @@ throw (BULKIO::dataVITA49::AttachError, BULKIO::dataVITA49::StreamInputError) {
 
     if (!attach_port_settings.attach_id.empty()) {
         LOG_ERROR(SourceVITA49_i, "Already has an attached connection! Latest attachment ignored!")
+        return CORBA::string_dup(curr_attach.attach_id.c_str());
     }
 
     initialize_values();
@@ -1416,6 +1436,12 @@ void SourceVITA49_i::process_context(std::vector<char> *packet) {
     T_l.tfsec = 0.0;
 
     rebase_pointer_context(packet);
+
+    PayloadFormat format = contextPacket_g->getDataPayloadFormat();
+
+    if(!isNull(format)){
+        outputSRI.mode = format.getRealComplexType();
+    }
 
     if (!isNull(contextPacket_g->getStreamID()) && streamID.empty()) {
         streamID = contextPacket_g->getStreamID();
@@ -1658,7 +1684,7 @@ void SourceVITA49_i::process_context(std::vector<char> *packet) {
         Geolocation Temp = contextPacket_g->getGeolocationINS();
 
         if (processingGEOINS != Temp) {
-            processingGEOINS = contextPacket_g->getGeolocationGPS();
+            processingGEOINS = contextPacket_g->getGeolocationINS();
 
             TimeStamp geo_ins_time;
             geo_ins_time = processingGEOINS.getTimeStamp();
