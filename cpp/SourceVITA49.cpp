@@ -624,7 +624,9 @@ void SourceVITA49_i::attachmentOverrideChanged(const attachment_override_struct*
         attach_override_settings.use_udp_protocol = attachment_override.use_udp_protocol;
 
         streamID = attach_override_settings.attach_id; //"manual_override";
+        boost::mutex::scoped_lock sri_lock(sriLock);
         currSRI.streamID = streamID.c_str();
+        sri_lock.unlock();
 
         destroy_rx_thread();
 
@@ -1009,6 +1011,8 @@ double SourceVITA49_i::timeDiff() {
  *
  ******************************************************************************************/
 void SourceVITA49_i::setDefaultSRI() {
+    boost::mutex::scoped_lock lock(sriLock);
+
     currSRI.hversion = 0;
     /* time between samples (inverse of sample rate) */
     currSRI.xdelta = (double) 0;
