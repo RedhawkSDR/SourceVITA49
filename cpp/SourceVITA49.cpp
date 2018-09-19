@@ -1417,6 +1417,12 @@ void SourceVITA49_i::process_context(std::vector<char> *packet) {
 
     rebase_pointer_context(packet);
 
+    PayloadFormat format = contextPacket_g->getDataPayloadFormat();
+
+    if(!isNull(format)){
+        outputSRI.mode = format.getRealComplexType();
+    }
+
     if (!isNull(contextPacket_g->getStreamID()) && streamID.empty()) {
         streamID = contextPacket_g->getStreamID();
     }
