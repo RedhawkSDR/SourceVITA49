@@ -1658,7 +1658,7 @@ void SourceVITA49_i::process_context(std::vector<char> *packet) {
         Geolocation Temp = contextPacket_g->getGeolocationINS();
 
         if (processingGEOINS != Temp) {
-            processingGEOINS = contextPacket_g->getGeolocationGPS();
+            processingGEOINS = contextPacket_g->getGeolocationINS();
 
             TimeStamp geo_ins_time;
             geo_ins_time = processingGEOINS.getTimeStamp();
