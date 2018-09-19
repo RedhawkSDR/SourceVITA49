@@ -1208,6 +1208,7 @@ throw (BULKIO::dataVITA49::AttachError, BULKIO::dataVITA49::StreamInputError) {
 
     if (!attach_port_settings.attach_id.empty()) {
         LOG_ERROR(SourceVITA49_i, "Already has an attached connection! Latest attachment ignored!")
+        return CORBA::string_dup(curr_attach.attach_id.c_str());
     }
 
     initialize_values();
