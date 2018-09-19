@@ -1110,6 +1110,11 @@ bool SourceVITA49_i::launch_rx_thread() {
 
     if (attachedIP > lowMulti && attachedIP < highMulti && !curr_attach.ip_address.empty()) {
         LOG_DEBUG(SourceVITA49_i, "Enabling multicast_client on " << attachedInterface << " " << attachedIPstr << " " << curr_attach.port);
+
+        if(multicast_udp_open) {
+            multicast_close(multi_client);
+        }
+
         multi_client = multicast_client(attachedInterface, attachedIPstr, curr_attach.port);
 
         if (multi_client.sock < 0) {
@@ -1120,6 +1125,11 @@ bool SourceVITA49_i::launch_rx_thread() {
         multicast_udp_open = true;
     } else if (!curr_attach.use_udp_protocol) {
         LOG_DEBUG(SourceVITA49_i, "Enabling unicast TCP client on " << attachedInterface << " " << attachedIPstr << " " << curr_attach.port);
+
+        if(unicast_tcp_open) {
+            unicast_tcp_close(tcp_client);
+        }
+
         tcp_client = unicast_tcp_client(attachedInterface, attachedIPstr, curr_attach.port);
 
         if (tcp_client.sock < 0) {
@@ -1130,6 +1140,11 @@ bool SourceVITA49_i::launch_rx_thread() {
         unicast_tcp_open = true;
     } else {
         LOG_DEBUG(SourceVITA49_i, "Enabling unicast UDP client on " << attachedInterface << " " << attachedIPstr << " " << curr_attach.port);
+
+        if(unicast_udp_open) {
+            unicast_close(uni_client);
+        }
+
         uni_client = unicast_client(attachedInterface, attachedIPstr, curr_attach.port);
 
         if (uni_client.sock < 0) {
