@@ -80,13 +80,15 @@ before_script:
     - cd tests
     - env | tee -a ../$CI_PROJECT_NAME-$CI_COMMIT_SHA-tests.log
     - pip list | tee -a ../$CI_PROJECT_NAME-$CI_COMMIT_SHA-tests.log
-    - python $test_suite 2>&1 | tee -a ../$CI_PROJECT_NAME-$CI_COMMIT_SHA-tests.log
+    - |
+        ulimit -c unlimited
+        python $test_suite 2>&1 | tee -a ../$CI_PROJECT_NAME-$CI_COMMIT_SHA-tests.log
     - cd ..
     - if [ -d cpp ]; then
         gcovr -r . --xml --exclude-directories=tests > gcovr.xml;
         cppcheck --enable=all --xml-version=2 -i tests . 2> cppcheck-results.xml;
       fi
-    - find * -name '*.cpp' -o -name '*.h' -o -name '*.xml' -o -name '*.py' -o -name '*.java' -o -name '*.log' | tar czvf $CI_PROJECT_DIR/output.tar.gz --files-from -
+    - find * -name '*.cpp' -o -name '*.h' -o -name '*.xml' -o -name '*.py' -o -name '*.java' -o -name '*.log' -o -name  'core\.[0-9]+]' | tar czvf $CI_PROJECT_DIR/output.tar.gz --files-from -
   artifacts:
     paths:
       - $CI_PROJECT_DIR/output.tar.gz
