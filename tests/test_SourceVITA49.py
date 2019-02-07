@@ -19,6 +19,8 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
 
+# TODO - set MULTICAST_INTERFACE to an interface that supports multicast
+MULTICAST_INTERFACE = None # 'em1' 'eth0'
 DEBUG_LEVEL = 3
 LITTLE_ENDIAN=1234
 BIG_ENDIAN=4321
@@ -35,7 +37,9 @@ from ossie.cf import CF
 from bulkio import timestamp
 import time
 import socket
-from vita49 import VITA49 
+from vita49 import VITA49
+from multicast import multicast_server
+from unicast import unicast_server
 
 # Full functionality is tested via end-to-end testing using SinkVITA49 and SourceVITA49 in the fulltest_VITA49.py file
 class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
@@ -51,12 +55,13 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         self.multi_ip = '236.0.10.1'
         self.vector_size=512
         self.componentSetup()
-        self.comp.interface = "lo" 
+        self.comp.interface = "lo"
         self.comp.advanced_configuration.corba_transfersize = 100
         self.comp.advanced_configuration.buffer_size=100
         self.input_vita49_port = self.comp.getPort("dataVITA49_in")
-        self.setupSocket()
         
+        self.mserver = multicast_server(self.multi_ip, self.port)
+        self.userver = unicast_server(self.uni_ip, self.port)
         
         
     def tearDown(self):
@@ -110,8 +115,11 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         self.input_vita49_port.pushSRI(sri,timestamp.now())          
   
 
-    def callAttach(self,valid_data_format=True,mode=0):
+    def callAttach(self,valid_data_format=True,mode=0,mcast=False):
         # Mode 0 = RealShort ,  1 = ComplexShort, 2 = RealFloat, 3 = ComplexFloat
+        ip = self.uni_ip
+        if mcast:
+            ip = self.multi_ip
         
         payloadFormat_RealShort = BULKIO.VITA49DataPacketPayloadFormat(True,BULKIO.VITA49_REAL,BULKIO.VITA49_16T,False,0,0,16,16,1,1)
         payloadFormat_ComplexShort = BULKIO.VITA49DataPacketPayloadFormat(True,BULKIO.VITA49_COMPLEX_CARTESIAN,BULKIO.VITA49_16T,False,0,0,16,16,1,1)
@@ -135,8 +143,8 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         else:
             payloadFormat = None
         
-        streamDef = BULKIO.VITA49StreamDefinition(self.uni_ip,0,self.port,BULKIO.VITA49_UDP_TRANSPORT,"id", valid_data_format,payloadFormat)
-                
+        streamDef = BULKIO.VITA49StreamDefinition(ip,0,self.port,BULKIO.VITA49_UDP_TRANSPORT,"id", valid_data_format,payloadFormat)
+        
         # Try to attach
         attachId = ''
         
@@ -156,23 +164,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
       for c in inputStr:
         seed ^= (ord(c) + 0x9e3779b9 + (seed<<6) + (seed>>2)) & 0xffffffffffffffff
       return seed & 0xffffffff
-  
-    def setupSocket(self):
 
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        #self.sock.bind((self.uni_ip, self.port))
-        
-    
-    def writeSocketData(self,dataIn):
-        #dataOut= ""
-        #for i in range(0, len(dataIn), 4):
-            #data = struct.pack("I",dataIn[i:i+3])
-        #    dataOut+= socket.hton1(data) # Switch to network Order (BIG ENDIAN)
-            
-        sent = self.sock.sendto(dataIn,(self.uni_ip, self.port))
-        if sent != len(dataIn):
-                raise RuntimeError("socket Error")
-            
     def createVITA49Data(self,streamID="vita49TestData",format=VITA49.DATA_FORMATS.SI,bandwidth=20e6,sample_rate=25e6,rf_ref=100e6,vector_size=512 ):
         v49 = VITA49()
         v49.timestamp = time.time()
@@ -189,29 +181,34 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         
         return v49
 
-    def sendDataandCheck(self,vita49Frame, littleEndianPayload=False):
+    def sendDataandCheck(self,vita49Frame, littleEndianPayload=False, mcast=False):
+        
+        #send_method = self.writeSocketData
+        send_method = self.userver.send
+        if mcast:
+            send_method = self.mserver.send
         
         Indata=[x %256 for x in range(self.vector_size)]
 
         # Send Data Packet
         frame = vita49Frame.generateVRLFrame(Indata, force_send_context=False, littleEndianContent=littleEndianPayload)       
-        self.writeSocketData(frame)
+        send_method(frame)
         time.sleep(.1)
         
         # Send Context Packet
         frame = vita49Frame.generateVRLFrame(None, force_send_context=True, littleEndianContent=littleEndianPayload)
-        self.writeSocketData(frame)
+        send_method(frame)
         time.sleep(.1)
 
         # Send Data Packets
         frame = vita49Frame.generateVRLFrame(Indata, force_send_context=False, littleEndianContent=littleEndianPayload)
-        self.writeSocketData(frame)
+        send_method(frame)
 
         frame = vita49Frame.generateVRLFrame(Indata, force_send_context=False, littleEndianContent=littleEndianPayload)
-        self.writeSocketData(frame)
+        send_method(frame)
 
         frame = vita49Frame.generateVRLFrame(Indata, force_send_context=False, littleEndianContent=littleEndianPayload)
-        self.writeSocketData(frame)
+        send_method(frame)
 
          
         time.sleep(3)
@@ -401,153 +398,225 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
             self.assertEqual(found,True)
         
         
-        self.input_vita49_port.detach(attachId)        
+        self.input_vita49_port.detach(attachId)
 
-    def testSendDataBigEndianSI(self):
+    def testSendDataBigEndianSImcast(self):
+        self.testSendDataBigEndianSI(mcast=True)
+
+    def testSendDataBigEndianSI(self, mcast=False):
+        if mcast:
+            if MULTICAST_INTERFACE is None:
+                print 'WARNING - SKIPPING MULTICAST TESTS BECAUSE MULTICAST_INTERFACE IS NOT SET CORRECTLY'
+                return
+            self.comp.interface = MULTICAST_INTERFACE
         
         self.connectOutputData(portName= "dataShort_out")
 
-        attachId = self.callAttach(True,0)
+        attachId = self.callAttach(True,0,mcast=mcast)
         self.pushSriBigEndian(xdelta=1.0/10000,mode=1,streamID="testSendDataSI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
         
         v49 = self.createVITA49Data(streamID="testSendDataSI",format=VITA49.DATA_FORMATS.SI,vector_size=self.vector_size)
-        self.sendDataandCheck(v49)
+        self.sendDataandCheck(v49, mcast=mcast)
   
 
         print "****Send Detach "  
         self.input_vita49_port.detach(attachId)
 
-    def testSendDataBigEndianCI(self):
+    def testSendDataBigEndianCImcast(self):
+        self.testSendDataBigEndianCI(mcast=True)
+
+    def testSendDataBigEndianCI(self, mcast=False):
+        if mcast:
+            if MULTICAST_INTERFACE is None:
+                print 'WARNING - SKIPPING MULTICAST TESTS BECAUSE MULTICAST_INTERFACE IS NOT SET CORRECTLY'
+                return
+            self.comp.interface = MULTICAST_INTERFACE
                 
         self.connectOutputData(portName= "dataShort_out")
-        attachId = self.callAttach(True,1)
+        attachId = self.callAttach(True,1,mcast=mcast)
         self.pushSriBigEndian(xdelta=1.0/10000,mode=1,streamID="testSendDataCI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
         
         v49 = self.createVITA49Data(streamID="testSendDataCI",format=VITA49.DATA_FORMATS.CI,vector_size=self.vector_size/2)
-        self.sendDataandCheck(v49)
+        self.sendDataandCheck(v49,mcast=mcast)
   
 
         print "****Send Detach "  
-        self.input_vita49_port.detach(attachId)    
+        self.input_vita49_port.detach(attachId)
         
-    def testSendDataBigEndianSF(self):
+    def testSendDataBigEndianSFmcast(self):
+        self.testSendDataBigEndianSF(mcast=True)
+        
+    def testSendDataBigEndianSF(self, mcast=False):
+        if mcast:
+            if MULTICAST_INTERFACE is None:
+                print 'WARNING - SKIPPING MULTICAST TESTS BECAUSE MULTICAST_INTERFACE IS NOT SET CORRECTLY'
+                return
+            self.comp.interface = MULTICAST_INTERFACE
                 
         self.connectOutputData(portName= "dataFloat_out")
 
-        attachId = self.callAttach(True,2)
+        attachId = self.callAttach(True,2,mcast=mcast)
         self.pushSriBigEndian(xdelta=1.0/10000,mode=1,streamID="testSendDataSF", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
         
         v49 = self.createVITA49Data(streamID="testSendDataSF",format=VITA49.DATA_FORMATS.SF,vector_size=self.vector_size)
-        self.sendDataandCheck(v49)
+        self.sendDataandCheck(v49,mcast=mcast)
   
 
         print "****Send Detach "  
-        self.input_vita49_port.detach(attachId)    
+        self.input_vita49_port.detach(attachId)
         
-    def testSendDataLittleEndianSI(self):
+    def testSendDataLittleEndianSImcast(self):
+        self.testSendDataLittleEndianSI(mcast=True)
+        
+    def testSendDataLittleEndianSI(self, mcast=False):
+        if mcast:
+            if MULTICAST_INTERFACE is None:
+                print 'WARNING - SKIPPING MULTICAST TESTS BECAUSE MULTICAST_INTERFACE IS NOT SET CORRECTLY'
+                return
+            self.comp.interface = MULTICAST_INTERFACE
         
         self.connectOutputData(portName= "dataShort_out")
 
-        attachId = self.callAttach(True,0)
+        attachId = self.callAttach(True,0,mcast=mcast)
         self.pushSriLittleEndian(xdelta=1.0/10000,mode=1,streamID="testSendDataSI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
         
         v49 = self.createVITA49Data(streamID="testSendDataSI",format=VITA49.DATA_FORMATS.SI,vector_size=self.vector_size)
-        self.sendDataandCheck(v49, littleEndianPayload=True)
+        self.sendDataandCheck(v49, littleEndianPayload=True,mcast=mcast)
   
 
         print "****Send Detach "  
         self.input_vita49_port.detach(attachId)
 
-    def testSendDataLittleEndianCI(self):
+    def testSendDataLittleEndianCImcast(self):
+        self.testSendDataLittleEndianCI(mcast=True)
+
+    def testSendDataLittleEndianCI(self, mcast=False):
+        if mcast:
+            if MULTICAST_INTERFACE is None:
+                print 'WARNING - SKIPPING MULTICAST TESTS BECAUSE MULTICAST_INTERFACE IS NOT SET CORRECTLY'
+                return
+            self.comp.interface = MULTICAST_INTERFACE
                 
         self.connectOutputData(portName= "dataShort_out")
-        attachId = self.callAttach(True,1)
+        attachId = self.callAttach(True,1,mcast=mcast)
         self.pushSriLittleEndian(xdelta=1.0/10000,mode=1,streamID="testSendDataCI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
         
         v49 = self.createVITA49Data(streamID="testSendDataCI",format=VITA49.DATA_FORMATS.CI,vector_size=self.vector_size/2)
-        self.sendDataandCheck(v49, littleEndianPayload=True)
+        self.sendDataandCheck(v49, littleEndianPayload=True,mcast=mcast)
   
 
         print "****Send Detach "  
-        self.input_vita49_port.detach(attachId)    
+        self.input_vita49_port.detach(attachId)
         
-    def testSendDataLittleEndianSF(self):
+    def testSendDataLittleEndianSFmcast(self):
+        self.testSendDataLittleEndianSF(mcast=True)
+        
+    def testSendDataLittleEndianSF(self, mcast=False):
+        if mcast:
+            if MULTICAST_INTERFACE is None:
+                print 'WARNING - SKIPPING MULTICAST TESTS BECAUSE MULTICAST_INTERFACE IS NOT SET CORRECTLY'
+                return
+            self.comp.interface = MULTICAST_INTERFACE
                 
         self.connectOutputData(portName= "dataFloat_out")
 
-        attachId = self.callAttach(True,2)
+        attachId = self.callAttach(True,2,mcast=mcast)
         self.pushSriLittleEndian(xdelta=1.0/10000,mode=1,streamID="testSendDataSF", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
         
         v49 = self.createVITA49Data(streamID="testSendDataSF",format=VITA49.DATA_FORMATS.SF,vector_size=self.vector_size)
-        self.sendDataandCheck(v49, littleEndianPayload=True)
+        self.sendDataandCheck(v49, littleEndianPayload=True,mcast=mcast)
   
 
         print "****Send Detach "  
-        self.input_vita49_port.detach(attachId)    
+        self.input_vita49_port.detach(attachId)
         
-    def testSendDataDefaultEndianSI(self):
+    def testSendDataDefaultEndianSImcast(self):
+        self.testSendDataDefaultEndianSI(mcast=True)
+        
+    def testSendDataDefaultEndianSI(self, mcast=False):
+        if mcast:
+            if MULTICAST_INTERFACE is None:
+                print 'WARNING - SKIPPING MULTICAST TESTS BECAUSE MULTICAST_INTERFACE IS NOT SET CORRECTLY'
+                return
+            self.comp.interface = MULTICAST_INTERFACE
         
         self.connectOutputData(portName= "dataShort_out")
 
-        attachId = self.callAttach(True,0)
+        attachId = self.callAttach(True,0,mcast=mcast)
         self.pushSRI(xdelta=1.0/10000,mode=1,streamID="testSendDataSI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
         
         v49 = self.createVITA49Data(streamID="testSendDataSI",format=VITA49.DATA_FORMATS.SI,vector_size=self.vector_size)
-        self.sendDataandCheck(v49)
+        self.sendDataandCheck(v49,mcast=mcast)
   
 
         print "****Send Detach "  
         self.input_vita49_port.detach(attachId)
 
-    def testSendDataDefaultEndianCI(self):
+    def testSendDataDefaultEndianCImcast(self):
+        self.testSendDataDefaultEndianCI(mcast=True)
+
+    def testSendDataDefaultEndianCI(self, mcast=False):
+        if mcast:
+            if MULTICAST_INTERFACE is None:
+                print 'WARNING - SKIPPING MULTICAST TESTS BECAUSE MULTICAST_INTERFACE IS NOT SET CORRECTLY'
+                return
+            self.comp.interface = MULTICAST_INTERFACE
                 
         self.connectOutputData(portName= "dataShort_out")
-        attachId = self.callAttach(True,1)
+        attachId = self.callAttach(True,1,mcast=mcast)
         self.pushSRI(xdelta=1.0/10000,mode=1,streamID="testSendDataCI", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
         
         v49 = self.createVITA49Data(streamID="testSendDataCI",format=VITA49.DATA_FORMATS.CI,vector_size=self.vector_size/2)
-        self.sendDataandCheck(v49)
+        self.sendDataandCheck(v49,mcast=mcast)
   
 
         print "****Send Detach "  
-        self.input_vita49_port.detach(attachId)    
+        self.input_vita49_port.detach(attachId)
         
-    def testSendDataDefaultEndianSF(self):
+    def testSendDataDefaultEndianSFmcast(self):
+        self.testSendDataDefaultEndianSF(mcast=True)
+        
+    def testSendDataDefaultEndianSF(self, mcast=False):
+        if mcast:
+            if MULTICAST_INTERFACE is None:
+                print 'WARNING - SKIPPING MULTICAST TESTS BECAUSE MULTICAST_INTERFACE IS NOT SET CORRECTLY'
+                return
+            self.comp.interface = MULTICAST_INTERFACE
                 
         self.connectOutputData(portName= "dataFloat_out")
 
-        attachId = self.callAttach(True,2)
+        attachId = self.callAttach(True,2,mcast=mcast)
         self.pushSRI(xdelta=1.0/10000,mode=1,streamID="testSendDataSF", kw=[CF.DataType("COL_RF", ossie.properties.to_tc_value(100000000, 'double'))])
 
         self.comp.start()
         time.sleep(1)
         
         v49 = self.createVITA49Data(streamID="testSendDataSF",format=VITA49.DATA_FORMATS.SF,vector_size=self.vector_size)
-        self.sendDataandCheck(v49)
+        self.sendDataandCheck(v49,mcast=mcast)
   
 
         print "****Send Detach "  
