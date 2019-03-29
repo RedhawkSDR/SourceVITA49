@@ -1,4 +1,23 @@
 #!/bin/env python
+#
+# This file is protected by Copyright. Please refer to the COPYRIGHT file
+# distributed with this source distribution.
+#
+# This file is part of REDHAWK SourceVITA49.
+#
+# REDHAWK SourceVITA49 is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# REDHAWK SourceVITA49 is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see http://www.gnu.org/licenses/.
+#
 import math
 import struct
 import time
@@ -17,7 +36,9 @@ class VITA49():
     rf_ref = None
     if_ref = None
     format = None
-    vector_size = 0
+    vector_size = 1
+    payload_len=256
+    
     
     #Helper classes
     class PKT_TYPE:
@@ -145,6 +166,7 @@ class VITA49():
         #Set length header field post-creation
         if len(pkt) > 65536:
             raise RuntimeError("Packet is too large")
+        #print "SetPacketLength ", length
         pkt[0] |= length
     
     def toVITA49Int(self, value, radix=20):
@@ -156,13 +178,15 @@ class VITA49():
     def generateVRLFrame(self, data=None, force_send_context=True, packet_max_elements=None, littleEndianContent=False):
         VRL_FAW = 0x56524C50
         NO_CRC = 0x56454E44
+        nsamps=0
+        if data : nsamps=len(data)
         
         #Generate content
         content = ""
         if force_send_context:
             content += self.generateContextPacket()
         if data != None:
-            content += self.generateDataPacket(data, littleEndianContent)
+            content += self.generateDataPacket(data, nsamps, littleEndianContent)
         
         #Add header
         frame = struct.pack('!I', VRL_FAW)
@@ -230,7 +254,7 @@ class VITA49():
         self.setPacketLength(pkt, len(pkt))
         return struct.pack('!%dI'%len(pkt), *pkt)
     
-    def generateDataPacket(self, data, littleEndianContent=False):
+    def generateDataPacket(self, data, nsamples, littleEndianContent=False):
         pkt = self.generateCommonHeader()
         
         
@@ -248,11 +272,12 @@ class VITA49():
             flat_data = data
         
         #Verify that we have the amount of data as indicated in the header
-        if len(flat_data)/(1+complex) != self.vector_size:
-            raise RuntimeError("Must provide the same amount of data as indicated in VITA49.vector_size")
+        if len(data) % self.vector_size != 0:
+            raise RuntimeError("Sample Data "+ len(data) +" is not a multiple of VITA49 vector_size " + str(self.vector_size))
         
+
         #Verify we are hitting a word boundary
-        if len(flat_data)*width % 32 != 0:
+        if (len(flat_data)*width*8) % 32 != 0:
             raise RuntimeError("Must provide data that packs to a 32 bit boundary" )
         
         #Byte swap each element and append in
@@ -263,6 +288,8 @@ class VITA49():
             #content += struct.pack('!%s'%pack_type, d)
             content += struct.pack(byteOrderFlag+'%s'%pack_type, d)
         
+
+        #print "Data Packet format ", self.format, " samples ", nsamples, " pkt len ", len(pkt), " cnt ", len(content)
         self.setPacketLength(pkt, len(pkt) + len(content)/4)
         return struct.pack('!%dI'%len(pkt), *pkt)+content
     
@@ -278,11 +305,11 @@ if __name__ == "__main__":
     v49.format = v49.DATA_FORMATS.SI
     v49.bandwidth = 1.0e3
     v49.sample_rate = 1.25e3
-    v49.vector_size = 256
+    v49.vector_size = 1
     v49.if_ref = 1.0e6
     v49.rf_ref = 2.0e9
-    v49.vector_size = 256
-    
+    v94.payload_len = 256
+
     frame = v49.generateVRLFrame(None, force_send_context=True)
     v49.printData(frame)
     frame = v49.generateVRLFrame(xrange(0,256))

@@ -40,6 +40,19 @@
 
 PREPARE_LOGGING(SourceVITA49_i)
 
+std::ostream& operator<<(std::ostream& stream, const BULKIO::StreamSRI& sri)
+  {
+      stream << "stream id :" << sri.streamID << std::endl;
+      stream << "xdelta :" << sri.xdelta << std::endl;
+      stream << "mode :" << sri.mode << std::endl;
+      stream << "blocking :" << sri.blocking << std::endl;
+      for ( uint i=0; i < sri.keywords.length(); i++ ) 
+          stream << "id:" << sri.keywords[i].id <<  " value:" << ossie::simpleAnyToString(sri.keywords[i].value) << std::endl;
+return stream;
+}
+
+
+
 ////////////////////
 // C++ Life Cycle //
 ////////////////////
@@ -70,8 +83,9 @@ SourceVITA49_i::~SourceVITA49_i() {
 }
 
 void SourceVITA49_i::__constructor__() {
-    data = NULL;
+    data = (unsigned char*) malloc( ossie::corba::giopMaxMsgSize() );
     createMem = true;
+
 
     TimeStamp *temp = new TimeStamp(IntegerMode_GPS, 0, 0);
 
@@ -98,7 +112,7 @@ void SourceVITA49_i::__constructor__() {
     resetAttachSettings(attach_override_settings);
     resetAttachSettings(attach_port_settings);
 
-    transferSize = CORBA_MAX_XFER_BYTES;
+    transferSize =ossie::corba::giopMaxMsgSize();
     unicast_udp_open = false;
     unicast_tcp_open = false;
     multicast_udp_open = false;
@@ -158,6 +172,7 @@ void SourceVITA49_i::initialize_values() {
         value = advanced_configuration.corba_transfersize;
     numBuffers = int(std::max(std::ceil(advanced_configuration.buffer_size / value), (double) numBuffers));
     numBuffers = int(std::max(std::ceil(value / advanced_configuration.vita49_packet_size), (double) numBuffers));
+    memoryManagement(advanced_configuration.vita49_packet_size);
 }
 
 //////////////////
@@ -165,22 +180,23 @@ void SourceVITA49_i::initialize_values() {
 //////////////////
 void SourceVITA49_i::memoryManagement(int maxPacketLength) {
     boost::mutex::scoped_lock runLock(processing_lock);
+    
+    int tnumBuffers = int(std::ceil(transferSize / maxPacketLength*1.0));
+    
+    if ( numBuffers > tnumBuffers &&  advanced_configuration.vita49_packet_size  >= (uint)maxPacketLength &&
+         ( Bank2.size() > 0 || workQueue2.size() > 0) ) {
+        LOG_DEBUG(SourceVITA49_i, "No need to change bank of message buffers curr " << numBuffers << " / " << advanced_configuration.vita49_packet_size << " new " << tnumBuffers << " / " << maxPacketLength );
+        createMem=false;
+        return;
+     }
 
-    if (data != NULL)
-        free(data);
-    data = (unsigned char*) malloc(CORBA_MAX_XFER_BYTES);
-
-//    if (array != NULL)
-//        free(array);
-//    array = (char*) malloc(CORBA_MAX_XFER_BYTES);
+    if ( numBuffers < tnumBuffers ) {
+        LOG_DEBUG(SourceVITA49_i, "Changing number of buffers from " << numBuffers << " to " << tnumBuffers );
+        numBuffers=tnumBuffers;
+    }
 
     Bank2.clear();
     workQueue2.clear();
-
-    if (numBuffers < int(std::ceil(transferSize / maxPacketLength))) {
-        LOG_INFO(SourceVITA49_i, "Changing number of buffers from " << numBuffers << " to " << int(std::ceil(transferSize / maxPacketLength)));
-        numBuffers = int(std::ceil(transferSize / maxPacketLength));
-    }
 
     Bank2.set_capacity(numBuffers);
     workQueue2.set_capacity(numBuffers);
@@ -251,7 +267,7 @@ void SourceVITA49_i::RECEIVER() {
                 rebase_pointer_basicVRT(&vrl_vrt_header);
 
                 if (basicVRTPacket->getPacketType() == PacketType_Data) {
-                    LOG_DEBUG(SourceVITA49_i, "Got VRT Packet length of " << basicVRTPacket->getPacketLength() << " bytes");
+                    LOG_TRACE(SourceVITA49_i, "Got VRT DATA Packet length of " << basicVRTPacket->getPacketLength() << " bytes");
 
                     rebase_pointer_basicVRL(&vrl_vrt_header);
 
@@ -260,12 +276,12 @@ void SourceVITA49_i::RECEIVER() {
                     packetSize = pLength;
                     found_payload_size = true;
 
-                    LOG_DEBUG(SourceVITA49_i, "Got VRL Frame length of " << pLength << " bytes");
+                    LOG_TRACE(SourceVITA49_i, "Got VRL Frame length of " << pLength << " bytes");
                 } else if (basicVRTPacket->getPacketType() == PacketType_Context) {
                     // Since this is UDP, just receive some data to throw away the packet
                     recv(uni_client.sock, vrl_vrt_header.data(), vrl_vrt_header.size(), 0);
 
-                    LOG_DEBUG(SourceVITA49_i, "Threw away context packet");
+                    LOG_TRACE(SourceVITA49_i, "Threw away context packet");
                 }
             } else {
                 std::vector<char> vrt_header(BasicVRTPacket::MAX_HEADER_LENGTH);
@@ -280,12 +296,12 @@ void SourceVITA49_i::RECEIVER() {
                     packetSize = pLength;
                     found_payload_size = true;
 
-                    LOG_DEBUG(SourceVITA49_i, "Got VRT Packet length of " << pLength << " bytes");
+                    LOG_TRACE(SourceVITA49_i, "Got VRT Packet length of " << pLength << " bytes");
                 } else if (basicVRTPacket->getPacketType() == PacketType_Context) {
                     // Since this is UDP, just receive some data to throw away the packet
                     recv(uni_client.sock, vrt_header.data(), vrt_header.size(), 0);
 
-                    LOG_DEBUG(SourceVITA49_i, "Threw away context packet");
+                    LOG_TRACE(SourceVITA49_i, "Threw away context packet");
                 }
             }
         } else {
@@ -360,7 +376,7 @@ void SourceVITA49_i::RECEIVER_M() {
             _offset = 0;
             LOG_DEBUG(SourceVITA49_i, "Not Using VRL Frames");
         }
-    }
+    } 
 
     while (runThread) {
         if (not found_payload_size) {
@@ -711,15 +727,17 @@ int SourceVITA49_i::serviceFunction() {
 
     if (createMem)
         memoryManagement(packetSize);
+    {
+      boost::mutex::scoped_lock runLock(running_lock);
+      // check if receive thread is running for current attachment
+      if (!curr_attach.attach && attach_port_settings.attach_id != "" ) {
+          if (!launch_rx_thread()) {
+              serviceThread->updateDelay(1.0);
+              return NOOP;
+          }
 
-    if (!curr_attach.attach) {
-        if (!launch_rx_thread()) {
-            LOG_WARN(SourceVITA49_i, "SourceVITA49 is unable to launch RX thread");
-            serviceThread->updateDelay(1.0);
-            return NOOP;
-        }
-
-        serviceThread->updateDelay(0.1);
+          serviceThread->updateDelay(0.1);
+      }
     }
 
     if (!workQueue2.is_not_empty() && streamID.empty()) {
@@ -1084,7 +1102,7 @@ bool SourceVITA49_i::launch_rx_thread() {
     // Apply/use the appropriate attachment settings
     bool validAttachSettings = updateAttachSettings();
     if (not validAttachSettings) {
-        LOG_ERROR(SourceVITA49_i, "Cannot start RX_THREAD :: Invalid attachment settings!");
+        LOG_ERROR(SourceVITA49_i, "Trying to start receiver but no attachments have been made, and manual override is disabled");
         return false;
     }
 
@@ -1104,12 +1122,13 @@ bool SourceVITA49_i::launch_rx_thread() {
     isMulticast = false;
 
     if ((int)attachedIP == -1) {
-        LOG_ERROR(SourceVITA49_i, "Cannot start RX_THREAD :: Invalid attachment IP")
-                                        return false;
+        LOG_ERROR(SourceVITA49_i, "Invalid attachment IP address: <" << curr_attach.ip_address << ">");
+        return false;
     }
 
     if (attachedIP > lowMulti && attachedIP < highMulti && !curr_attach.ip_address.empty()) {
         LOG_DEBUG(SourceVITA49_i, "Enabling multicast_client on " << attachedInterface << " " << attachedIPstr << " " << curr_attach.port);
+        isMulticast = true;
         multi_client = multicast_client(attachedInterface, attachedIPstr, curr_attach.port);
 
         if (multi_client.sock < 0) {
@@ -1240,6 +1259,10 @@ throw (BULKIO::dataVITA49::AttachError, BULKIO::dataVITA49::StreamInputError) {
     streamID = std::string(stream.id);
     currSRI.streamID = CORBA::string_dup(streamID.c_str());
 
+    LOG_INFO(SourceVITA49_i, "Attaching source stream " <<  attach_port_settings.ip_address << 
+             ":" << attach_port_settings.port <<
+             " to bulkio stream " << streamID  << 
+             " as attachment " <<  attach_port_settings.attach_id);
     lock.unlock();
 
     // Destroy the rx_thread to allow new settings to take effect
@@ -1287,6 +1310,7 @@ void SourceVITA49_i::detach(const char* attach_id) {
         throw BULKIO::dataVITA49::DetachError("Detach called on stream not currently running");
     }
 
+    LOG_INFO(SourceVITA49_i, "Detaching ID " << attach_id << ", from source stream " <<  attach_port_settings.ip_address  << ":" << attach_port_settings.port << " and terminating bulkio stream " << streamID );
     destroy_rx_thread();
 
     if (processingPayloadFormat.getDataType() == DataType_Int8) {
@@ -1419,11 +1443,12 @@ void SourceVITA49_i::process_context(std::vector<char> *packet) {
 
     if (!isNull(contextPacket_g->getStreamID()) && streamID.empty()) {
         streamID = contextPacket_g->getStreamID();
+        LOG_DEBUG(SourceVITA49_i, " (process_context_packet) streamID " << streamID );
     }
 
     if (!isNull(contextPacket_g->getClassID())) {
         classID = contextPacket_g->getClassID();
-        addModifyKeyword<string>(&outputSRI, "CLASS_IDENTIFIER ", classID);
+        addModifyKeyword<string>(&outputSRI, "CLASS_IDENTIFIER", classID);
     }
 
     if (!isNull(contextPacket_g->getDataPayloadFormat()))
@@ -1437,8 +1462,8 @@ void SourceVITA49_i::process_context(std::vector<char> *packet) {
             T_l.twsec = packetTime.getUTCSeconds();
             T_l.tfsec = packetTime.getTimeStampFractional();
 
-            addModifyKeyword<double>(&outputSRI, "TimeStamp Whole Seconds ", CORBA::Double(T_l.twsec));
-            addModifyKeyword<double>(&outputSRI, "TimeStamp Fractional Seconds ", CORBA::Double(T_l.tfsec * 1e-12));
+            addModifyKeyword<double>(&outputSRI, "TimeStamp Whole Seconds", CORBA::Double(T_l.twsec));
+            addModifyKeyword<double>(&outputSRI, "TimeStamp Fractional Seconds", CORBA::Double(T_l.tfsec * 1e-12));
 
             outputSRI.xstart = T_l.twsec + T_l.tfsec * 1e-12;
             outputSRI.xstart = 0;
@@ -1447,8 +1472,8 @@ void SourceVITA49_i::process_context(std::vector<char> *packet) {
             T_l.twsec = packetTime.getTimeStampInteger();
             T_l.tfsec = packetTime.getTimeStampFractional();
 
-            addModifyKeyword<double>(&outputSRI, "TimeStamp Whole Seconds ", CORBA::Double(T_l.twsec));
-            addModifyKeyword<double>(&outputSRI, "TimeStamp Fractional Seconds ", CORBA::Double(T_l.tfsec));
+            addModifyKeyword<double>(&outputSRI, "TimeStamp Whole Seconds", CORBA::Double(T_l.twsec));
+            addModifyKeyword<double>(&outputSRI, "TimeStamp Fractional Seconds", CORBA::Double(T_l.tfsec));
         }
     }
 
@@ -1582,7 +1607,7 @@ void SourceVITA49_i::process_context(std::vector<char> *packet) {
     }
 
     if (contextPacket_g->getUserDefinedBits() != 0) {
-        addModifyKeyword<long>(&outputSRI, " USER_DEFINED ", CORBA::Long(contextPacket_g->getUserDefinedBits()));
+        addModifyKeyword<long>(&outputSRI, "USER_DEFINED", CORBA::Long(contextPacket_g->getUserDefinedBits()));
         LOG_DEBUG(SourceVITA49_i, "USER_DEFINED: " << contextPacket_g->getUserDefinedBits());
     }
 
@@ -2078,6 +2103,7 @@ bool SourceVITA49_i::process_data_packet(std::vector<char> *packet) {
 
         if (_dataRef != BYTE_ORDER) {
 //            standardDPacket->swapPayloadBytes(processingPayloadFormat, &array[0]);
+            LOG_TRACE(SourceVITA49_i, "(proces_data_packet) Swap Payload .... dataRef: " << _dataRef << " byte order: " << BYTE_ORDER );
             standardDPacket->swapPayloadBytes(processingPayloadFormat);
         }
 
@@ -2180,8 +2206,7 @@ bool SourceVITA49_i::updateAttachSettings() {
         // If we have a valid port attachment
         applyAttachSettings(attach_port_settings);
     } else {
-        LOG_ERROR(SourceVITA49_i, "Unable to determine attachment settings!")
-                                        return false;
+        return false;
     }
 
     connection_status.input_ip_address = ossie::corba::returnString(curr_attach.ip_address.c_str());
