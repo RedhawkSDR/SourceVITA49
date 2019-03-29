@@ -18,7 +18,7 @@ before_script:
     - repo_bucket=${rh_repo_bucket}
     - if [ -z "$CI_COMMIT_TAG" ]; then
         redhawk_version=${latest_version}
-        vita49_version=$CI_COMMIT_REF_SLUG
+        vita49_version="`echo ${vita49_version} | sed -r 's/\./-/g'`";
         rpm_release="0.$CI_PIPELINE_ID.rh${safe_version}";
       else
         redhawk_version=${release_version}
