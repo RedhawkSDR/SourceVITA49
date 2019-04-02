@@ -641,10 +641,14 @@ void SourceVITA49_i::attachmentOverrideChanged(const attachment_override_struct*
 
         streamID = attach_override_settings.attach_id; //"manual_override";
         currSRI.streamID = streamID.c_str();
+	currSRI.xdelta = 1.0;
 
+        LOG_INFO(SourceVITA49_i, "Manual attachment: ip address: " << attach_override_settings.ip_address << " port: " << attach_override_settings.port << " vlan: " << attach_override_settings.vlan <<
+		 " streamID " << streamID << " attach id " << attach_override_settings.attach_id);
+
+        // destroy thread, service function will restart receiving thread
         destroy_rx_thread();
 
-        LOG_DEBUG(SourceVITA49_i, "Received via attach: " << curr_attach.ip_address.c_str() << " " << curr_attach.port << " " << curr_attach.vlan);
 
     } else {
         // Called the first time override is deactivated
@@ -730,7 +734,9 @@ int SourceVITA49_i::serviceFunction() {
     {
       boost::mutex::scoped_lock runLock(running_lock);
       // check if receive thread is running for current attachment
-      if (!curr_attach.attach && attach_port_settings.attach_id != "" ) {
+      if ( (!curr_attach.attach && attach_port_settings.attach_id != "" ) ||
+           (!curr_attach.attach && attach_override_settings.manual_override && 
+            attach_override_settings.ip_address != "" )) {
           if (!launch_rx_thread()) {
               serviceThread->updateDelay(1.0);
               return NOOP;
@@ -1085,12 +1091,12 @@ void SourceVITA49_i::setStartOfYear() {
 void SourceVITA49_i::destroy_rx_thread() {
     boost::mutex::scoped_lock runLock(teardown_lock);
     if (_receiveThread != NULL) {
-        curr_attach.attach = false;
         runThread = false;
         _receiveThread->timed_join(boost::posix_time::seconds(1));
         delete _receiveThread;
         _receiveThread = NULL;
     }
+    curr_attach.attach = false;
 }
 
 bool SourceVITA49_i::launch_rx_thread() {
