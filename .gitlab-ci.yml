@@ -1,8 +1,9 @@
 variables:
   rh_20_release: '2-0-8'
-  rh_22_release: '2-2-0'
+  rh_22_release: '2-2-2'
   rh_23_release: '2-3-0'
   vita49_version: '5-0-0-rc2'
+  rh_repo_bucket: 'redhawk/cf-and-deps'
   namespace: rh.
   test_suite: test_$CI_PROJECT_NAME.py
 
@@ -15,16 +16,17 @@ stages:
 before_script:
     - safe_version=$(echo ${short_version} | tr -d -)
     - safe_ref=$(echo ${CI_COMMIT_REF_NAME} | tr -d /| tr '[:upper:]' '[:lower:]')
+    - repo_bucket=${rh_repo_bucket}
     - if [ -z "$CI_COMMIT_TAG" ]; then
         redhawk_version=${latest_version}
-        vita49_version=$CI_COMMIT_REF_SLUG
+        vita49_version="`echo ${vita49_version} | sed -r 's/\./-/g'`";
         rpm_release="0.$CI_PIPELINE_ID.rh${safe_version}";
       else
         redhawk_version=${release_version}
         vita49_version="`echo ${vita49_version} | sed -r 's/\./-/g'`";
         rpm_release="`rpm --query --queryformat "%{release}\n" --specfile ${namespace}$CI_PROJECT_NAME.spec | head -n 1 | awk -F"." "{print $1}"`.rh${safe_version}";
       fi
-    - redhawk_repo=$s3_repo_url/redhawk/cf-and-deps/yum/$redhawk_version/$dist/$arch
+    - redhawk_repo=$s3_repo_url/$repo_bucket/yum/$redhawk_version/$dist/$arch
     - vita49_repo=$s3_repo_url/redhawk-sharedlibs/VITA49/yum/$vita49_version/rh${safe_version}/$dist/$arch
 
 .package: &package
@@ -102,6 +104,7 @@ package:el6:rh2.0:
   variables:
     latest_version: develop-2-0
     release_version: $rh_20_release
+    rh_repo_bucket: 'redhawk-all'
     short_version: '2.0'
     dist: el6
     arch: x86_64
@@ -111,6 +114,7 @@ package:el6-i386:rh2.0:
   variables:
     latest_version: develop-2-0
     release_version: $rh_20_release
+    rh_repo_bucket: 'redhawk-all'
     short_version: '2.0'
     dist: el6
     arch: i686
@@ -120,6 +124,7 @@ package:el7:rh2.0:
   variables:
     latest_version: develop-2-0
     release_version: $rh_20_release
+    rh_repo_bucket: 'redhawk-all'
     short_version: '2.0'
     dist: el7
     arch: x86_64
@@ -129,6 +134,7 @@ package:el6:rh2.2:
   variables:
     latest_version: develop-2-2
     release_version: $rh_22_release
+    rh_repo_bucket: 'redhawk-all'
     short_version: '2.2'
     dist: el6
     arch: x86_64
@@ -138,6 +144,7 @@ package:el7:rh2.2:
   variables:
     latest_version: develop-2-2
     release_version: $rh_22_release
+    rh_repo_bucket: 'redhawk-all'
     short_version: '2.2'
     dist: el7
     arch: x86_64
@@ -157,6 +164,7 @@ package:el7:rh2.3:
     latest_version: develop
     release_version: $rh_23_release
     short_version: '2.3'
+    rh_repo_bucket: 'redhawk-all'
     dist: el7
     arch: x86_64
   <<: *package
@@ -165,6 +173,7 @@ test:el6:rh2.0:
   variables:
     latest_version: develop-2-0
     release_version: $rh_20_release
+    rh_repo_bucket: 'redhawk-all'
     short_version: '2.0'
     dist: el6
     arch: x86_64
@@ -176,6 +185,7 @@ test:el6-i386:rh2.0:
   variables:
     latest_version: develop-2-0
     release_version: $rh_20_release
+    rh_repo_bucket: 'redhawk-all'
     short_version: '2.0'
     dist: el6
     arch: i686
@@ -185,6 +195,7 @@ test:el7:rh2.0:
   variables:
     latest_version: develop-2-0
     release_version: $rh_20_release
+    rh_repo_bucket: 'redhawk-all'
     short_version: '2.0'
     dist: el7
     arch: x86_64
@@ -194,6 +205,7 @@ test:el6:rh2.2:
   variables:
     latest_version: develop-2-2
     release_version: $rh_22_release
+    rh_repo_bucket: 'redhawk-all'
     short_version: '2.2'
     dist: el6
     arch: x86_64
@@ -203,6 +215,7 @@ test:el7:rh2.2:
   variables:
     latest_version: develop-2-2
     release_version: $rh_22_release
+    rh_repo_bucket: 'redhawk-all'
     short_version: '2.2'
     dist: el7
     arch: x86_64
@@ -222,6 +235,7 @@ test:el7:rh2.3:
     latest_version: develop
     release_version: $rh_23_release
     short_version: '2.3'
+    rh_repo_bucket: 'redhawk-all'
     dist: el7
     arch: x86_64
   <<: *test
