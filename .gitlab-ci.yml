@@ -1,6 +1,6 @@
 variables:
   rh_20_release: '2-0-8'
-  rh_22_release: '2-2-2'
+  rh_22_release: '2-2-3'
   rh_23_release: '2-3-0'
   vita49_version: '5-0-0-rc2'
   rh_repo_bucket: 'redhawk/cf-and-deps'
