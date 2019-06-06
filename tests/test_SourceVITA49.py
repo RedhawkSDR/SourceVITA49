@@ -144,7 +144,7 @@ class ResourceTests(ossie.utils.testing.ScaComponentTestCase):
         else:
             payloadFormat = None
         
-        streamDef = BULKIO.VITA49StreamDefinition(self.uni_ip,0,self.port,BULKIO.VITA49_UDP_TRANSPORT,streamID, valid_data_format,payloadFormat)
+        streamDef = BULKIO.VITA49StreamDefinition(ip,0,self.port,BULKIO.VITA49_UDP_TRANSPORT,streamID, valid_data_format,payloadFormat)
                 
         # Try to attach
         attachId = ''
