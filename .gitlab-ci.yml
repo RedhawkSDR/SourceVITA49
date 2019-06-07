@@ -4,6 +4,7 @@ variables:
   rh_23_release: '2-3-0'
   vita49_version: '5-0-0-rc2'
   rh_repo_bucket: 'redhawk/cf-and-deps'
+  rh_all_bucket: 'redhawk-all'
   namespace: rh.
   test_suite: test_$CI_PROJECT_NAME.py
 
@@ -18,6 +19,7 @@ before_script:
     - safe_ref=$(echo ${CI_COMMIT_REF_NAME} | tr -d /| tr '[:upper:]' '[:lower:]')
     - repo_bucket=${rh_repo_bucket}
     - if [ -z "$CI_COMMIT_TAG" ]; then
+        repo_bucket=${rh_all_bucket}
         redhawk_version=${latest_version}
         vita49_version="`echo ${vita49_version} | sed -r 's/\./-/g'`";
         rpm_release="0.$CI_PIPELINE_ID.rh${safe_version}";
