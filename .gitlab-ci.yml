@@ -1,6 +1,6 @@
 variables:
   rh_20_release: '2-0-8'
-  rh_22_release: '2-2-3'
+  rh_22_release: '2-2-0'
   rh_23_release: '2-3-0'
   vita49_version: '5-0-0-rc2'
   rh_repo_bucket: 'redhawk/cf-and-deps'
@@ -104,7 +104,6 @@ package:el6:rh2.0:
   variables:
     latest_version: 2.0-nightly
     release_version: $rh_20_release
-    rh_repo_bucket: 'redhawk-all'
     short_version: '2.0'
     dist: el6
     arch: x86_64
@@ -114,7 +113,6 @@ package:el6-i386:rh2.0:
   variables:
     latest_version: 2.0-nightly
     release_version: $rh_20_release
-    rh_repo_bucket: 'redhawk-all'
     short_version: '2.0'
     dist: el6
     arch: i686
@@ -124,7 +122,6 @@ package:el7:rh2.0:
   variables:
     latest_version: 2.0-nightly
     release_version: $rh_20_release
-    rh_repo_bucket: 'redhawk-all'
     short_version: '2.0'
     dist: el7
     arch: x86_64
@@ -134,7 +131,6 @@ package:el6:rh2.2:
   variables:
     latest_version: 2.2-nightly
     release_version: $rh_22_release
-    rh_repo_bucket: 'redhawk-all'
     short_version: '2.2'
     dist: el6
     arch: x86_64
@@ -144,7 +140,6 @@ package:el7:rh2.2:
   variables:
     latest_version: 2.2-nightly
     release_version: $rh_22_release
-    rh_repo_bucket: 'redhawk-all'
     short_version: '2.2'
     dist: el7
     arch: x86_64
@@ -154,7 +149,6 @@ package:el6:rh2.3:
   variables:
     latest_version: 2.3-nightly
     release_version: $rh_23_release
-    rh_repo_bucket: 'redhawk-all'
     vita49_version: 'develop'
     short_version: '2.3'
     dist: el6
@@ -167,7 +161,6 @@ package:el7:rh2.3:
     release_version: $rh_23_release
     short_version: '2.3'
     vita49_version: 'develop'    
-    rh_repo_bucket: 'redhawk-all'
     dist: el7
     arch: x86_64
   <<: *package
@@ -176,7 +169,6 @@ test:el6:rh2.0:
   variables:
     latest_version: 2.0-nightly
     release_version: $rh_20_release
-    rh_repo_bucket: 'redhawk-all'
     short_version: '2.0'
     dist: el6
     arch: x86_64
@@ -188,7 +180,6 @@ test:el6-i386:rh2.0:
   variables:
     latest_version: 2.0-nightly
     release_version: $rh_20_release
-    rh_repo_bucket: 'redhawk-all'
     short_version: '2.0'
     dist: el6
     arch: i686
@@ -198,7 +189,6 @@ test:el7:rh2.0:
   variables:
     latest_version: 2.0-nightly
     release_version: $rh_20_release
-    rh_repo_bucket: 'redhawk-all'
     short_version: '2.0'
     dist: el7
     arch: x86_64
@@ -208,7 +198,6 @@ test:el6:rh2.2:
   variables:
     latest_version: 2.2-nightly
     release_version: $rh_22_release
-    rh_repo_bucket: 'redhawk-all'
     short_version: '2.2'
     dist: el6
     arch: x86_64
@@ -218,7 +207,6 @@ test:el7:rh2.2:
   variables:
     latest_version: 2.2-nightly
     release_version: $rh_22_release
-    rh_repo_bucket: 'redhawk-all'
     short_version: '2.2'
     dist: el7
     arch: x86_64
@@ -228,7 +216,6 @@ test:el6:rh2.3:
   variables:
     latest_version: 2.3-nightly
     release_version: $rh_23_release
-    rh_repo_bucket: 'redhawk-all'
     vita49_version: 'develop'
     short_version: '2.3'
     dist: el6
@@ -239,7 +226,6 @@ test:el7:rh2.3:
   variables:
     latest_version: 2.3-nightly
     release_version: $rh_23_release
-    rh_repo_bucket: 'redhawk-all'
     vita49_version: 'develop'
     short_version: '2.3'
     dist: el7
